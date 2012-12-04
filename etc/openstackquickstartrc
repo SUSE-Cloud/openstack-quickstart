@@ -1,0 +1,21 @@
+# this file is used as configuration 
+# for openstack-quickstart-demosetup
+# and openstack-quickstart-extranodesetup scripts
+
+# password for demo accounts
+pw=openstack
+
+# mysql password
+mpw=m$pw
+
+# cloud controller IP-Addr - must adapt to routable Address for multi-node-setup
+IP=127.0.0.1
+
+# this defines which addresses are assigned to VMs - should be part of your regular subnet, unless you arrange for routing
+testnet=10.10.134.16/29
+
+# this defines which database to use
+#DB=mysql
+DB=postgresql
+
+SERVICE_TOKEN=999888777666

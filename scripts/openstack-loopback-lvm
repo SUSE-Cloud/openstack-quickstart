@@ -1,0 +1,34 @@
+#!/bin/sh
+
+f=/var/lib/nova/volumes
+loop=/dev/loop0
+modprobe loop
+
+if vgscan |grep -q nova-volumes ; then
+  echo "using existing nova-volumes VG"
+  vgchange -ay nova-volumes
+  exit 0
+fi
+
+# stop/cleanup
+#vgremove nova-volumes
+vgchange -an nova-volumes
+#losetup -d $loop
+
+
+if ! test -e $f ; then
+	# calc wanted size
+	size=$(df -P -k /var/lib/nova/|tail -1| perl -ne 'm/^\S+\s*\d+\s+\d+\s+(\d+)/; print int($1*0.3)')
+
+	if [ $size -le 2000000 ] ; then
+		echo "error detecting free space or FS too small: $size KB"
+		exit 12
+	fi
+
+	truncate --size=${size}K $f
+fi
+losetup $loop $f
+pvcreate $loop
+vgcreate nova-volumes $loop
+
+vgchange -ay nova-volumes

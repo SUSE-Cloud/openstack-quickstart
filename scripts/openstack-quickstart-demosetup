@@ -1,0 +1,352 @@
+#!/bin/bash -x
+
+. /etc/openstackquickstartrc
+ADMIN_PASSWORD=$pw
+SERVICE_HOST=$IP
+
+KEYSTONE_SYSTEM_USER=openstack-keystone
+KEYSTONE_SYSTEM_GROUP=openstack-keystone
+GLANCE_SYSTEM_USER=openstack-glance
+GLANCE_SYSTEM_GROUP=openstack-glance
+HORIZON_SYSTEM_USER=openstack-horizon
+
+echo "Setting up OpenStack demo controller..."
+
+if [ "$DB" = "postgresql" ] ; then
+	zypper -n in postgresql-server python-psycopg2
+	/etc/init.d/postgresql restart
+else
+	# start mysql
+	/etc/init.d/mysql start
+fi
+
+
+grep -q -e vmx -e svm /proc/cpuinfo || MODE=lxc
+# use lxc or qemu, if kvm is unavailable
+if rpm -q openstack-nova-compute >/dev/null ; then
+    if [ "$MODE" = lxc ] ; then
+	sed -i -e 's/\(--libvirt_type\).*/\1=lxc/' /etc/nova/nova.conf
+	zypper -n install lxc
+	echo mount -t cgroup none /cgroup >> /etc/init.d/boot.local
+	mkdir /cgroup
+	mount -t cgroup none /cgroup
+    else
+	modprobe kvm-intel ; modprobe kvm-amd
+	sed -i -e 's/\(MODULES_LOADED_ON_BOOT="\)/\1kvm-intel kvm-amd\ /' /etc/sysconfig/kernel
+    fi
+    modprobe nbd
+    sed -i -e 's/\(MODULES_LOADED_ON_BOOT="\)/\1nbd\ /' /etc/sysconfig/kernel
+fi
+
+# activate ip-forwarding
+sed -i -e 's;IP_FORWARD="no";IP_FORWARD="yes";' /etc/sysconfig/sysctl
+sed -i -e 's;net.ipv4.ip_forward.*;net.ipv4.ip_forward = 1;' /etc/sysctl.conf
+echo 1 > /proc/sys/net/ipv4/ip_forward
+
+# configure bridge
+if [ ! -e /etc/sysconfig/network/ifcfg-br0 ] ; then
+	echo "net.ipv4.conf.all.proxy_arp = 1" >> /etc/sysctl.conf
+	/etc/init.d/network stop
+	ifdown eth0 # because systemd ignores the above
+	sed -i -e "s/\(BOOTPROTO\).*/\1='static'/"     \
+	       -e "s|^\(IPADDR\).*|\1='0.0.0.0\\/32'|" /etc/sysconfig/network/ifcfg-eth0
+	cat >/etc/sysconfig/network/ifcfg-br0 <<EOF
+BOOTPROTO='dhcp4'
+BRIDGE='yes'
+BRIDGE_FORWARDDELAY='0'
+BRIDGE_PORTS='eth0'
+BRIDGE_STP='off'
+BROADCAST=''
+ETHTOOL_OPTIONS=''
+IPADDR=''
+MTU=''
+NETMASK=''
+NETWORK=''
+REMOTE_IPADDR=''
+STARTMODE='onboot'
+USERCONTROL='no'
+EOF
+	/etc/init.d/network start
+fi
+
+# configure dashboard/apache
+cat >/etc/apache2/conf.d/openstack-dashboard.conf <<EOF
+<IfDefine SSL>
+    RewriteEngine On
+    RewriteCond %{SERVER_PORT} !^443$
+    RewriteRule / https://%{HTTP_HOST}%{REQUEST_URI} [L,R]
+
+    <VirtualHost *:443>
+        ServerName www.example.com
+        ServerAdmin webmaster@example.com
+
+        SSLEngine On
+        SSLCertificateFile /etc/apache2/ssl.crt/openstack-dashboard-server.crt
+        SSLCertificateKeyFile /etc/apache2/ssl.key/openstack-dashboard-server.key
+
+        DocumentRoot /var/lib/openstack-dashboard/
+
+        Alias /static/horizon /var/lib/openstack-dashboard/horizon/static/horizon
+        <Directory /var/lib/openstack-dashboard/horizon/static/>
+            Order allow,deny
+            Allow from all
+        </Directory>
+
+        Alias /static /var/lib/openstack-dashboard/openstack_dashboard/static
+        <Directory /var/lib/openstack-dashboard/openstack_dashboard/static/>
+            Order allow,deny
+            Allow from all
+        </Directory>
+
+        WSGIScriptAlias / /var/lib/openstack-dashboard/openstack_dashboard/wsgi/django.wsgi
+        <Directory /var/lib/openstack-dashboard/openstack_dashboard/wsgi/>
+            Order allow,deny
+            Allow from all
+        </Directory>
+    </VirtualHost>
+</IfDefine>
+EOF
+a2enmod rewrite
+a2enmod ssl
+a2enmod wsgi
+a2enflag SSL
+
+DASHBOARD_LOCAL_SET=/var/lib/openstack-dashboard/openstack_dashboard/local/local_settings.py
+if grep -q "^\s*CACHE_BACKEND" $DASHBOARD_LOCAL_SET
+then
+  sed -i "s|^\s*CACHE_BACKEND.*$|CACHE_BACKEND = 'memcached://127.0.0.1:11211/'|" $DASHBOARD_LOCAL_SET
+else
+  echo "CACHE_BACKEND = 'memcached://127.0.0.1:11211/'" >> $DASHBOARD_LOCAL_SET
+fi
+
+if [ "$DB" = "postgresql" ]
+then
+cat >> $DASHBOARD_LOCAL_SET <<EODASHDB
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': 'horizon',
+        'USER': 'horizon',
+        'PASSWORD': '$mpw',
+    }
+}
+EODASHDB
+fi
+
+sed -i -e "s/^USE_SSL =.*/USE_SSL = True/" $DASHBOARD_LOCAL_SET
+# Use 'secure' session and CSRF cookies (bnc#753582):
+cat >> $DASHBOARD_LOCAL_SET <<EOSEC
+# Use 'secure' cookies when we use SSL, see https://docs.djangoproject.com/en/1.4/topics/security/:
+SESSION_COOKIE_SECURE = CSRF_COOKIE_SECURE = USE_SSL
+EOSEC
+
+# replace default IP in all configuration files
+sed -i -e "s;127.0.0.1;$IP;" /etc/nova/api-paste.ini /etc/glance/glance-api.conf /etc/glance/glance-registry.conf
+
+# configure nova
+perl -i.bak -pe "s,--sql_connection=\w+://\w+:[^\@:]*,--sql_connection=$DB://nova:$mpw,; s/<IP>/$IP/g; s/(--network_manager).*/\$1=nova.network.manager.FlatDHCPManager/;" /etc/nova/nova.conf
+echo '--flat_network_bridge=br0' >> /etc/nova/nova.conf
+echo '--allow_admin_api' >> /etc/nova/nova.conf
+echo '--connection_type=libvirt' >> /etc/nova/nova.conf
+echo '--image_service=nova.image.glance.GlanceImageService' >> /etc/nova/nova.conf
+echo "--glance_api_servers=$IP:9292" >> /etc/nova/nova.conf
+echo "--auth_strategy=keystone" >> /etc/nova/nova.conf
+echo "--novncproxy_base_url=http://$IP:6080/vnc_auto.html" >> /etc/nova/nova.conf
+extensions_path=`ls -d /usr/lib*/python*/site-packages/extensions | head -n 1`
+if [ -n "$extensions_path" ]; then
+    echo "--osapi_extensions_path=" >> /etc/nova/nova.conf
+fi
+
+grep -q nova-rootwrap /etc/sudoers || echo "openstack-nova ALL=(ALL) NOPASSWD:/usr/bin/nova-rootwrap" >> /etc/sudoers
+
+perl -i -pe "s/%SERVICE_TOKEN%/$SERVICE_TOKEN/;" /etc/nova/api-paste.ini # obsolete 2012-03-19?
+for m in nova glance ; do
+	sed -i -e 's/%SERVICE_TENANT_NAME%/service/' -e "s/%SERVICE_USER%/$m/" -e "s/%SERVICE_PASSWORD%/$SERVICE_TOKEN\nadmin_token = $SERVICE_TOKEN/" /etc/$m/*.ini
+done
+
+# replace pipelines to use keystone
+function replace_pipeline() {
+    sed "/\[pipeline:$1\]/,/\[/s/^pipeline = .*/pipeline = $2/" -i /etc/nova/api-paste.ini
+}
+replace_pipeline "ec2cloud" "ec2faultwrap logrequest totoken authtoken keystonecontext cloudrequest authorizer validator ec2executor"
+replace_pipeline "ec2admin" "ec2faultwrap logrequest totoken authtoken keystonecontext adminrequest authorizer ec2executor"
+replace_pipeline "openstack_compute_api_v2" "faultwrap authtoken keystonecontext ratelimit osapi_compute_app_v2"
+replace_pipeline "openstack_volume_api_v1" "faultwrap authtoken keystonecontext ratelimit osapi_volume_app_v1"
+
+if [ "$DB" = "postgresql" ] ; then
+	DATADIR=/var/lib/pgsql/data
+	if ! grep -q ::/0 /var/lib/pgsql/data/pg_hba.conf ; then
+        sed -i "s/^\(host .*\) ident\(.*\)/\1 md5 \2/" "$DATADIR/pg_hba.conf"
+        sed -i "s/^\(local \)/local horizon all md5 sameuser\n\1/" "$DATADIR/pg_hba.conf"
+		# allow remote connections:
+		echo "listen_addresses = '*'" >> $DATADIR/postgresql.conf
+		echo "host all all 0.0.0.0/0 md5  sameuser" >> $DATADIR/pg_hba.conf
+		echo "host all all      ::/0 md5  sameuser" >> $DATADIR/pg_hba.conf
+		if rpm -q postgresql|grep -q postgresql-9 ; then
+			sed -i 's/\s*sameuser$//' $DATADIR/pg_hba.conf # adapt config syntax to postgresql-9
+		fi
+	fi
+	sudo -u postgres dropdb -O keystone # needed for keystone_data.sh
+	for DBNAME in nova keystone glance horizon ; do
+		sudo -u postgres psql -c "CREATE ROLE $DBNAME PASSWORD '$mpw' LOGIN;"
+		sudo -u postgres createdb -O $DBNAME $DBNAME
+	done
+	sudo -u postgres createuser -s root
+	/etc/init.d/postgresql restart
+	insserv postgresql
+else
+	echo | mysql -u root || pwquery=-p
+	for DBNAME in nova keystone glance horizon ; do
+		echo "
+		set global character_set_server=latin1;
+		set session character_set_server=latin1;
+		CREATE DATABASE IF NOT EXISTS $DBNAME;
+		GRANT ALL PRIVILEGES ON $DBNAME.* TO '$DBNAME'@localhost IDENTIFIED BY '$mpw';
+		GRANT ALL PRIVILEGES ON $DBNAME.* TO '$DBNAME'@'%' IDENTIFIED BY '$mpw';
+		" | mysql -u root $pwquery
+	done
+fi
+
+
+# sync dashboard DB "after" the database is created
+cd /var/lib/openstack-dashboard && su -s /bin/bash -c "umask 0027; python -m 'manage' syncdb" wwwrun
+
+
+nova-manage db sync
+# optional - makes life better with little RAM
+echo "
+use nova;
+update instance_types set memory_mb=3072 where name='m1.medium';
+update instance_types set memory_mb=4096 where name='m1.large';
+update instance_types set memory_mb=5120 where name='m1.xlarge';
+" | mysql -u root $pwquery
+#nova-manage network create 10.10.134.32/27 1 32
+nova-manage network create --fixed_range_v4=$testnet --label=testnet
+
+
+# setup glance
+
+for f in api registry ; do
+  grep paste_deploy /etc/glance/glance-$f.conf || echo -e "[paste_deploy]\nflavor = keystone" >> /etc/glance/glance-$f.conf
+done
+sed -i "s%sql_connection =.*%sql_connection = $DB://glance:$mpw@$IP/glance%" /etc/glance/glance-registry.conf # db_sync is broken for postgresql
+#sed -i 's%sql_connection =.*%sql_connection = sqlite:////var/lib/glance/glance.sqlite%' /etc/glance/glance-registry.conf
+glance-manage db_sync
+chown -R $GLANCE_SYSTEM_USER:$GLANCE_SYSTEM_GROUP /var/lib/glance /var/log/glance
+
+# keystone demo setup, based on devstack.sh
+
+sed -i -e 's/kvs/sql/' -e "s,^connection =.*,connection = $DB://keystone:$mpw@$IP/keystone," /etc/keystone/keystone.conf
+#sed -i -e 's/kvs/sql/' -e 's,^connection =.*,connection =sqlite:////var/lib/keystone/keystone.sqlite,' /etc/keystone/keystone.conf
+rm -f /var/lib/keystone/keystone.sqlite # cleanup DB as devstack's script fails otherwise
+sed -i -e "s/^admin_token .*/admin_token = $SERVICE_TOKEN/" /etc/keystone/keystone.conf
+
+KEYSTONE_CATALOG=/etc/keystone/default_catalog.templates
+sed -e "s,%SERVICE_HOST%,$SERVICE_HOST,g" -e "s/%S3_SERVICE_PORT%/8080/" $KEYSTONE_CATALOG.sample > $KEYSTONE_CATALOG
+# Upgrade the database to the latest schema
+su - $KEYSTONE_SYSTEM_USER -s /bin/bash -c "keystone-manage --config-file=/etc/keystone/keystone.conf db_sync"
+#
+## Tenants
+#keystone-manage tenant add admin
+#keystone-manage tenant add demo
+#
+## Users
+#keystone-manage user add admin $pw
+#keystone-manage user add demo $pw
+#
+## Roles
+#keystone-manage role add Admin
+#keystone-manage role add Member
+#keystone-manage role add KeystoneAdmin
+#keystone-manage role add KeystoneServiceAdmin
+#keystone-manage role grant Admin admin admin
+#keystone-manage role grant Member demo demo
+#keystone-manage role grant Admin admin demo
+#keystone-manage role grant Admin admin
+#keystone-manage role grant KeystoneAdmin admin
+#keystone-manage role grant KeystoneServiceAdmin admin
+#
+## Services
+#keystone-manage service add nova compute "Nova Compute Service"
+#keystone-manage service add glance image "Glance Image Service"
+#keystone-manage service add keystone identity "Keystone Identity Service"
+#
+##endpointTemplates
+#keystone-manage endpointTemplates add RegionOne nova http://$IP:8774/v1.1/%tenant_id% http://$IP:8774/v1.1/%tenant_id%  http://$IP:8774/v1.1/%tenant_id% 1 1
+#keystone-manage endpointTemplates add RegionOne glance http://$IP:9292/v1.1/%tenant_id% http://$IP:9292/v1.1/%tenant_id% http://$IP:9292/v1.1/%tenant_id% 1 1
+#keystone-manage endpointTemplates add RegionOne keystone http://$IP:5000/v2.0 http://$IP:35357/v2.0 http://$IP:5000/v2.0 1 1
+#
+## Tokens
+#keystone-manage token add $SERVICE_TOKEN admin admin 2023-02-23T00:42
+#
+## EC2 related creds - note we are setting the secret key to ADMIN_PASSWORD
+## but keystone doesn't parse them - it is just a blob from keystone's
+## point of view
+#keystone-manage credentials add admin EC2 'admin' $pw admin  || echo "no support for adding credentials"
+#keystone-manage credentials add demo EC2 'demo' $pw demo  || echo "no support for adding credentials"
+
+
+# 2012-02-28 keystone light setup
+/etc/init.d/openstack-keystone restart
+ENABLED_SERVICES=${ENABLED_SERVICES:-g-api,g-reg,key,n-api,n-cpu,n-net,n-vol,n-sch,n-novnc,n-xvnc,horizon,mysql,rabbit}
+KEYSTONE_AUTH_HOST=${KEYSTONE_AUTH_HOST:-$SERVICE_HOST}
+KEYSTONE_AUTH_PORT=${KEYSTONE_AUTH_PORT:-35357}
+KEYSTONE_AUTH_PROTOCOL=${KEYSTONE_AUTH_PROTOCOL:-http}
+SERVICE_ENDPOINT=$KEYSTONE_AUTH_PROTOCOL://$KEYSTONE_AUTH_HOST:$KEYSTONE_AUTH_PORT/v2.0
+ADMIN_PASSWORD=$ADMIN_PASSWORD SERVICE_TENANT_NAME=service SERVICE_PASSWORD=$SERVICE_TOKEN SERVICE_TOKEN=$SERVICE_TOKEN SERVICE_ENDPOINT=$SERVICE_ENDPOINT DEVSTACK_DIR=/root ENABLED_SERVICES=$ENABLED_SERVICES bash /usr/lib/devstack/keystone_data.sh
+
+chown $KEYSTONE_SYSTEM_USER:$KEYSTONE_SYSTEM_GROUP -R /var/lib/keystone/
+
+
+rm -f /usr/lib/python*/site-packages/nova-iptables.lock.lock # workaround bug
+rm -f /var/lock/SuSEfirewall2.booting # workaround openSUSE bug
+SuSEfirewall2 stop	# interferes with openstack's network/firewall
+insserv -r SuSEfirewall2_setup
+insserv -r SuSEfirewall2_init
+if which aa-complain >&/dev/null; then
+    aa-complain /etc/apparmor.d/usr.sbin.libvirtd
+fi
+if [ -e /etc/init.d/boot.apparmor ]; then
+    /etc/init.d/boot.apparmor stop		# interferes with openstack-nova-network
+    insserv -r boot.apparmor
+fi
+
+# configure NTP, because we need synchronized time between nodes
+grep -q ntp.org /etc/ntp.conf || echo server pool.ntp.org >> /etc/ntp.conf
+
+# change libvirt to run qemu as user qemu
+sed -i -e 's;.*user.*=.*;user = "qemu";' /etc/libvirt/qemu.conf
+
+# start services
+for s in ntp libvirtd mysql rabbitmq-server iscsitarget open-iscsi tgtd memcached apache2 openstack-nova-api openstack-nova-scheduler openstack-nova-network openstack-nova-compute openstack-nova-vncproxy openstack-glance-api openstack-glance-registry openstack-keystone openstack-nova-consoleauth openstack-novncproxy
+do
+  i=/etc/init.d/$s
+  if [ -x $i ] ; then
+    insserv $s
+    $i restart
+  fi
+done
+
+/usr/sbin/openstack-loopback-lvm
+if [ "$?" -ne "0" ]; then
+  # setup failed, so do not use
+  insserv -r openstack-nova-volume
+else
+  grep -q openstack-loopback-lvm /etc/init.d/boot.local || echo /usr/sbin/openstack-loopback-lvm >> /etc/init.d/boot.local
+  /etc/init.d/openstack-nova-volume restart
+fi
+
+grep -q bash.openstackrc /etc/bash.bashrc.local ||\
+echo "export HOST_IP=$IP
+. /etc/bash.openstackrc 
+setcreds admin $pw" >> /etc/bash.bashrc.local
+
+. /etc/bash.bashrc.local
+for user in demo admin ; do
+	setcreds $user $pw
+	nova secgroup-add-rule default icmp -1 -1 0.0.0.0/0 # to allow ping
+	#nova secgroup-add-rule default tcp 22 22 0.0.0.0/0 # to allow only SSH or do
+	nova secgroup-add-rule default tcp 1 65535 0.0.0.0/0 # to allow all TCP
+	nova secgroup-add-rule default udp 1 65535 0.0.0.0/0 # and all UDP
+	nova secgroup-list-rules default # lists the rules
+done

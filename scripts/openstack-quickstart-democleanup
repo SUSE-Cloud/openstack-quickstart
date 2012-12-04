@@ -1,0 +1,33 @@
+#!/bin/bash
+# Warning: this script deletes most of the files
+# and stops most services of a cloud from openstack-quickstart-demosetup
+
+# try normal cleanup first to stop VMs
+nova list| perl -ne 'if(/^\| (\S+) /){print "$1\n"}' |xargs -l nova delete
+nova image-list| perl -ne 'if(/^\| (\S+) /){print "$1\n"}' | xargs -l nova image-delete
+
+for i in /etc/init.d/{openstack-*,rabbitmq-server,memcached,libvirtd} ; do
+	$i stop
+done
+killall dnsmasq
+killall postmaster
+/etc/init.d/postgresql restart
+cd /
+for n in nova keystone glance horizon ; do
+	sudo -u postgres dropdb $n
+	sudo -u postgres dropuser $n
+    echo "drop database $n;" | mysql
+done
+
+for m in /var/lib/nova/instances/*/rootfs ; do
+	umount $m # for LXC
+done
+killall qemu-nbd 2>/dev/null # for LXC
+
+rm -f /var/lib/keystone/keystone.sqlite /var/lib/openstack-dashboard/openstack_dashboard/local/dashboard_openstack.sqlite3 /var/lib/glance/glance.sqlite
+rm -rf /var/lib/nova/instances/*
+rm -f /var/lib/glance/images/*
+rm -f /var/log/keystone/* /var/log/nova/* /var/log/glance/*
+rm -f /var/lib/nova/*/*
+
+/etc/init.d/postgresql stop

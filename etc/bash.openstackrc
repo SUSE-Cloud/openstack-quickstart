@@ -1,0 +1,45 @@
+# adjusted by bmw
+# default credentials for SUSE OpenStack appliance
+
+# input: optional username
+# input: optional password
+# sets required variables for nova, will read from stdin if param not given
+function setcreds() {
+	export NOVA_PROJECT_ID=$1
+	if [ -z "$NOVA_PROJECT_ID" ] ; then
+		echo -n "username: "
+		read NOVA_PROJECT_ID
+	fi
+	export NOVA_USERNAME=$NOVA_PROJECT_ID
+	export NOVA_API_KEY=$2
+	if [ -z "$NOVA_API_KEY" ] ; then
+		echo "password (will not be echoed): "
+		read -s NOVA_API_KEY
+	fi
+	export EC2_ACCESS_KEY=$NOVA_PROJECT_ID
+	export EC2_SECRET_KEY=$NOVA_API_KEY
+	# for glance/keystone
+	export OS_AUTH_USER=$NOVA_USERNAME
+	export OS_USERNAME=$NOVA_USERNAME
+	export OS_TENANT_NAME=$NOVA_PROJECT_ID
+	export OS_AUTH_KEY=$NOVA_API_KEY
+	export OS_PASSWORD=$NOVA_API_KEY
+	export OS_AUTH_TENANT=$NOVA_PROJECT_ID
+	export OS_AUTH_URL=$NOVA_URL
+	export OS_AUTH_STRATEGY=keystone
+}
+
+export NOVA_URL=http://127.0.0.1:5000/v2.0/
+export NOVA_VERSION=1.1
+export NOVA_REGION_NAME=RegionOne
+export NOVA_AUTH_STRATEGY=keystone
+#setcreds demo openstack
+
+# for euca2ools
+export EC2_URL=http://127.0.0.1:8773/services/Cloud
+
+# for keystone administration
+export SERVICE_ENDPOINT=http://127.0.0.1:35357/v2.0
+# don't put secrets in world readable files - this line is just for reference
+#export SERVICE_TOKEN=999888777666
+
