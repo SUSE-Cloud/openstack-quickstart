@@ -186,9 +186,12 @@ if [ "$DB" = "postgresql" ] ; then
 			sed -i 's/\s*sameuser$//' $DATADIR/pg_hba.conf # adapt config syntax to postgresql-9
 		fi
 	fi
-	sudo -u postgres dropdb -O keystone # needed for keystone_data.sh
+	sudo -u postgres dropdb keystone # needed for keystone_data.sh
 	for DBNAME in nova keystone glance horizon ; do
-		sudo -u postgres psql -c "CREATE ROLE $DBNAME PASSWORD '$mpw' LOGIN;"
+		# use ALTER if CREATE fails: the role probably already exists
+		# in that case
+		sudo -u postgres psql -c "CREATE ROLE $DBNAME PASSWORD '$mpw' LOGIN;" || \
+		sudo -u postgres psql -c "ALTER ROLE $DBNAME PASSWORD '$mpw' LOGIN;"
 		sudo -u postgres createdb -O $DBNAME $DBNAME
 	done
 	sudo -u postgres createuser -s root
