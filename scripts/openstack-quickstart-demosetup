@@ -1,5 +1,10 @@
 #!/bin/bash -x
 
+# go in a directory everybody can access
+# (postgresql commands usually have a 'could not change to "$PWD"' error
+# message if the postgres user cannot have access to $PWD...)
+cd /
+
 . /etc/openstackquickstartrc
 ADMIN_PASSWORD=$pw
 SERVICE_HOST=$IP
