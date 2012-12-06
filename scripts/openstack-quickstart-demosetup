@@ -39,7 +39,7 @@ if rpm -q openstack-nova-compute >/dev/null ; then
 fi
 
 # activate ip-forwarding
-sed -i -e 's;IP_FORWARD="no";IP_FORWARD="yes";' /etc/sysconfig/sysctl
+[ -e /etc/sysconfig/sysctl ] && sed -i -e 's;IP_FORWARD="no";IP_FORWARD="yes";' /etc/sysconfig/sysctl
 sed -i -e 's;net.ipv4.ip_forward.*;net.ipv4.ip_forward = 1;' /etc/sysctl.conf
 echo 1 > /proc/sys/net/ipv4/ip_forward
 
@@ -152,7 +152,7 @@ echo '--image_service=nova.image.glance.GlanceImageService' >> /etc/nova/nova.co
 echo "--glance_api_servers=$IP:9292" >> /etc/nova/nova.conf
 echo "--auth_strategy=keystone" >> /etc/nova/nova.conf
 echo "--novncproxy_base_url=http://$IP:6080/vnc_auto.html" >> /etc/nova/nova.conf
-extensions_path=`ls -d /usr/lib*/python*/site-packages/extensions | head -n 1`
+extensions_path=`ls -d /usr/lib*/python*/site-packages/extensions 2> /dev/null | head -n 1`
 if [ -n "$extensions_path" ]; then
     echo "--osapi_extensions_path=" >> /etc/nova/nova.conf
 fi
@@ -175,7 +175,7 @@ replace_pipeline "openstack_volume_api_v1" "faultwrap authtoken keystonecontext 
 
 if [ "$DB" = "postgresql" ] ; then
 	DATADIR=/var/lib/pgsql/data
-	if ! grep -q ::/0 /var/lib/pgsql/data/pg_hba.conf ; then
+	if ! grep -q ::/0 $DATADIR/pg_hba.conf ; then
         sed -i "s/^\(host .*\) ident\(.*\)/\1 md5 \2/" "$DATADIR/pg_hba.conf"
         sed -i "s/^\(local \)/local horizon all md5 sameuser\n\1/" "$DATADIR/pg_hba.conf"
 		# allow remote connections:
