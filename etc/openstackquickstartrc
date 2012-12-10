@@ -19,3 +19,6 @@ testnet=10.10.134.16/29
 DB=postgresql
 
 SERVICE_TOKEN=999888777666
+
+# network bridge devive name
+br=br0

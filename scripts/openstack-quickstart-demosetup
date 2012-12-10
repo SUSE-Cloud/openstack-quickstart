@@ -49,13 +49,13 @@ sed -i -e 's;net.ipv4.ip_forward.*;net.ipv4.ip_forward = 1;' /etc/sysctl.conf
 echo 1 > /proc/sys/net/ipv4/ip_forward
 
 # configure bridge
-if [ ! -e /etc/sysconfig/network/ifcfg-br0 ] ; then
+if [ ! -e /etc/sysconfig/network/ifcfg-$br ] ; then
 	echo "net.ipv4.conf.all.proxy_arp = 1" >> /etc/sysctl.conf
 	/etc/init.d/network stop
 	ifdown eth0 # because systemd ignores the above
 	sed -i -e "s/\(BOOTPROTO\).*/\1='static'/"     \
 	       -e "s|^\(IPADDR\).*|\1='0.0.0.0\\/32'|" /etc/sysconfig/network/ifcfg-eth0
-	cat >/etc/sysconfig/network/ifcfg-br0 <<EOF
+	cat >/etc/sysconfig/network/ifcfg-$br <<EOF
 BOOTPROTO='dhcp4'
 BRIDGE='yes'
 BRIDGE_FORWARDDELAY='0'
@@ -150,7 +150,8 @@ sed -i -e "s;127.0.0.1;$IP;" /etc/nova/api-paste.ini /etc/glance/glance-api.conf
 
 # configure nova
 perl -i.bak -pe "s,--sql_connection=\w+://\w+:[^\@:]*,--sql_connection=$DB://nova:$mpw,; s/<IP>/$IP/g; s/(--network_manager).*/\$1=nova.network.manager.FlatDHCPManager/;" /etc/nova/nova.conf
-echo '--flat_network_bridge=br0' >> /etc/nova/nova.conf
+echo "--flat_network_bridge=$br" >> /etc/nova/nova.conf
+echo "--bridge_interface=$br" >> /etc/nova/nova.conf
 echo '--allow_admin_api' >> /etc/nova/nova.conf
 echo '--connection_type=libvirt' >> /etc/nova/nova.conf
 echo '--image_service=nova.image.glance.GlanceImageService' >> /etc/nova/nova.conf
