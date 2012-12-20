@@ -30,7 +30,7 @@ grep -q -e vmx -e svm /proc/cpuinfo || MODE=lxc
 # use lxc or qemu, if kvm is unavailable
 if rpm -q openstack-nova-compute >/dev/null ; then
     if [ "$MODE" = lxc ] ; then
-	sed -i -e 's/\(--libvirt_type\).*/\1=lxc/' /etc/nova/nova.conf
+	sed -i -e 's/\(libvirt_type\).*/\1=lxc/' /etc/nova/nova.conf
 	zypper -n install lxc
 	echo mount -t cgroup none /cgroup >> /etc/init.d/boot.local
 	mkdir /cgroup
@@ -149,18 +149,17 @@ EOSEC
 sed -i -e "s;127.0.0.1;$IP;" /etc/nova/api-paste.ini /etc/glance/glance-api.conf /etc/glance/glance-registry.conf
 
 # configure nova
-perl -i.bak -pe "s,--sql_connection=\w+://\w+:[^\@:]*,--sql_connection=$DB://nova:$mpw,; s/<IP>/$IP/g; s/(--network_manager).*/\$1=nova.network.manager.FlatDHCPManager/;" /etc/nova/nova.conf
-echo "--flat_network_bridge=$br" >> /etc/nova/nova.conf
-echo "--bridge_interface=$br" >> /etc/nova/nova.conf
-echo '--allow_admin_api' >> /etc/nova/nova.conf
-echo '--connection_type=libvirt' >> /etc/nova/nova.conf
-echo '--image_service=nova.image.glance.GlanceImageService' >> /etc/nova/nova.conf
-echo "--glance_api_servers=$IP:9292" >> /etc/nova/nova.conf
-echo "--auth_strategy=keystone" >> /etc/nova/nova.conf
-echo "--novncproxy_base_url=http://$IP:6080/vnc_auto.html" >> /etc/nova/nova.conf
+perl -i.bak -pe "s,sql_connection=\w+://\w+:[^\@:]*,sql_connection=$DB://nova:$mpw,; s/<IP>/$IP/g; s/(network_manager).*/\$1=nova.network.manager.FlatDHCPManager/;" /etc/nova/nova.conf
+echo "flat_network_bridge=$br" >> /etc/nova/nova.conf
+echo "bridge_interface=$br" >> /etc/nova/nova.conf
+echo 'connection_type=libvirt' >> /etc/nova/nova.conf
+echo 'image_service=nova.image.glance.GlanceImageService' >> /etc/nova/nova.conf
+echo "glance_api_servers=$IP:9292" >> /etc/nova/nova.conf
+echo "auth_strategy=keystone" >> /etc/nova/nova.conf
+echo "novncproxy_base_url=http://$IP:6080/vnc_auto.html" >> /etc/nova/nova.conf
 extensions_path=`ls -d /usr/lib*/python*/site-packages/extensions 2> /dev/null | head -n 1`
 if [ -n "$extensions_path" ]; then
-    echo "--osapi_extensions_path=" >> /etc/nova/nova.conf
+    echo "osapi_extensions_path=" >> /etc/nova/nova.conf
 fi
 
 grep -q nova-rootwrap /etc/sudoers || echo "openstack-nova ALL=(ALL) NOPASSWD:/usr/bin/nova-rootwrap" >> /etc/sudoers
