@@ -167,7 +167,7 @@ grep -q nova-rootwrap /etc/sudoers || echo "openstack-nova ALL=(ALL) NOPASSWD:/u
 
 perl -i -pe "s/%SERVICE_TOKEN%/$SERVICE_TOKEN/;" /etc/nova/api-paste.ini # obsolete 2012-03-19?
 for m in nova glance ; do
-	sed -i -e 's/%SERVICE_TENANT_NAME%/service/' -e "s/%SERVICE_USER%/$m/" -e "s/%SERVICE_PASSWORD%/$SERVICE_TOKEN\nadmin_token = $SERVICE_TOKEN/" /etc/$m/*.ini
+	sed -i -e 's/%SERVICE_TENANT_NAME%/service/' -e "s/%SERVICE_USER%/$m/" -e "s/%SERVICE_PASSWORD%/$SERVICE_TOKEN\nadmin_token = $SERVICE_TOKEN/" /etc/$m/*.ini /etc/$m/*.conf
 done
 
 # replace pipelines to use keystone
@@ -238,7 +238,7 @@ nova-manage network create --fixed_range_v4=$testnet --label=testnet
 for f in api registry ; do
   grep paste_deploy /etc/glance/glance-$f.conf || echo -e "[paste_deploy]\nflavor = keystone" >> /etc/glance/glance-$f.conf
 done
-sed -i "s%sql_connection =.*%sql_connection = $DB://glance:$mpw@$IP/glance%" /etc/glance/glance-registry.conf # db_sync is broken for postgresql
+sed -i "s%sql_connection =.*%sql_connection = $DB://glance:$mpw@$IP/glance%" /etc/glance/glance-registry.conf /etc/glance/glance-api.conf # db_sync is broken for postgresql
 #sed -i 's%sql_connection =.*%sql_connection = sqlite:////var/lib/glance/glance.sqlite%' /etc/glance/glance-registry.conf
 glance-manage db_sync
 chown -R $GLANCE_SYSTEM_USER:$GLANCE_SYSTEM_GROUP /var/lib/glance /var/log/glance
