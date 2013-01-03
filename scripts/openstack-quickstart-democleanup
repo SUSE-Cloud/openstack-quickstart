@@ -8,6 +8,7 @@ nova image-list| perl -ne 'if(/^\| (\S+) /){print "$1\n"}' | xargs -l nova image
 
 for i in /etc/init.d/{openstack-*,rabbitmq-server,memcached,libvirtd} ; do
 	$i stop
+	insserv -r $i
 done
 killall dnsmasq
 killall postmaster
@@ -31,3 +32,5 @@ rm -f /var/log/keystone/* /var/log/nova/* /var/log/glance/*
 rm -f /var/lib/nova/*/*
 
 /etc/init.d/postgresql stop
+vgchange -an nova-volumes
+losetup -d /dev/loop0 && rm -f /var/lib/nova/volumes
