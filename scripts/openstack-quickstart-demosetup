@@ -257,6 +257,7 @@ sed -i -e 's/kvs/sql/' -e "s,^.*connection =.*,connection = $DB://keystone:$mpw@
 #sed -i -e 's/kvs/sql/' -e 's,^connection =.*,connection =sqlite:////var/lib/keystone/keystone.sqlite,' /etc/keystone/keystone.conf
 rm -f /var/lib/keystone/keystone.sqlite # cleanup DB as devstack's script fails otherwise
 sed -i -e "s/^.*admin_token .*/admin_token = $SERVICE_TOKEN/" /etc/keystone/keystone.conf
+sed -i -e "s/.*\(driver = keystone.catalog.backends.templated.TemplatedCatalog\)/\1/" /etc/keystone/keystone.conf
 
 KEYSTONE_CATALOG=/etc/keystone/default_catalog.templates
 sed -e "s,%SERVICE_HOST%,$SERVICE_HOST,g" -e "s/%S3_SERVICE_PORT%/8080/" $KEYSTONE_CATALOG.sample > $KEYSTONE_CATALOG
