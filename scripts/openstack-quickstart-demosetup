@@ -17,8 +17,13 @@ HORIZON_SYSTEM_USER=openstack-horizon
 
 echo "Setting up OpenStack demo controller..."
 
+function install_packages () {
+  test $# -gt 0 || return
+  rpm -q $* > /dev/null || zypper -n in $*
+}
+
 if [ "$DB" = "postgresql" ] ; then
-	zypper -n in postgresql-server python-psycopg2
+	install_packages postgresql-server python-psycopg2
 	/etc/init.d/postgresql restart
 else
 	# start mysql
@@ -31,7 +36,7 @@ grep -q -e vmx -e svm /proc/cpuinfo || MODE=lxc
 if rpm -q openstack-nova-compute >/dev/null ; then
     if [ "$MODE" = lxc ] ; then
 	sed -i -e 's/\(libvirt_type\).*/\1=lxc/' /etc/nova/nova.conf
-	zypper -n install lxc
+	install_packages lxc
 	echo mount -t cgroup none /cgroup >> /etc/init.d/boot.local
 	mkdir /cgroup
 	mount -t cgroup none /cgroup
