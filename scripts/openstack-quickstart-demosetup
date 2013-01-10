@@ -231,12 +231,21 @@ cd /var/lib/openstack-dashboard && su -s /bin/bash -c "umask 0027; python -m 'ma
 
 nova-manage db sync
 # optional - makes life better with little RAM
-echo "
-use nova;
-update instance_types set memory_mb=3072 where name='m1.medium';
-update instance_types set memory_mb=4096 where name='m1.large';
-update instance_types set memory_mb=5120 where name='m1.xlarge';
-" | mysql -u root $pwquery
+if [ "$DB" = "postgresql" ] ; then
+    echo "
+    update instance_types set memory_mb=3072 where name='m1.medium';
+    update instance_types set memory_mb=4096 where name='m1.large';
+    update instance_types set memory_mb=5120 where name='m1.xlarge';
+    " | sudo -u postgres psql -d nova
+else
+    echo "
+    use nova;
+    update instance_types set memory_mb=3072 where name='m1.medium';
+    update instance_types set memory_mb=4096 where name='m1.large';
+    update instance_types set memory_mb=5120 where name='m1.xlarge';
+    " | mysql -u root $pwquery
+fi
+
 #nova-manage network create 10.10.134.32/27 1 32
 nova-manage network create --fixed_range_v4=$testnet --label=testnet
 
