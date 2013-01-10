@@ -98,18 +98,6 @@ cat >/etc/apache2/conf.d/openstack-dashboard.conf <<EOF
 
         DocumentRoot /var/lib/openstack-dashboard/
 
-        Alias /static/horizon /var/lib/openstack-dashboard/horizon/static/horizon
-        <Directory /var/lib/openstack-dashboard/horizon/static/>
-            Order allow,deny
-            Allow from all
-        </Directory>
-
-        Alias /static /var/lib/openstack-dashboard/openstack_dashboard/static
-        <Directory /var/lib/openstack-dashboard/openstack_dashboard/static/>
-            Order allow,deny
-            Allow from all
-        </Directory>
-
         WSGIScriptAlias / /var/lib/openstack-dashboard/openstack_dashboard/wsgi/django.wsgi
         <Directory /var/lib/openstack-dashboard/openstack_dashboard/wsgi/>
             Order allow,deny
