@@ -32,5 +32,5 @@ rm -f /var/log/keystone/* /var/log/nova/* /var/log/glance/*
 rm -f /var/lib/nova/*/*
 
 /etc/init.d/postgresql stop
-vgchange -an nova-volumes
+vgchange -an cinder-volumes
 losetup -d /dev/loop0 && rm -f /var/lib/nova/volumes

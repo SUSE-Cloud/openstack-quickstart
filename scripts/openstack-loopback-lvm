@@ -4,15 +4,15 @@ f=/var/lib/nova/volumes
 loop=/dev/loop0
 modprobe loop
 
-if vgscan |grep -q nova-volumes ; then
-  echo "using existing nova-volumes VG"
-  vgchange -ay nova-volumes
+if vgscan |grep -q cinder-volumes ; then
+  echo "using existing cinder-volumes VG"
+  vgchange -ay cinder-volumes
   exit 0
 fi
 
 # stop/cleanup
-#vgremove nova-volumes
-vgchange -an nova-volumes
+#vgremove cinder-volumes
+vgchange -an cinder-volumes
 #losetup -d $loop
 
 
@@ -29,6 +29,6 @@ if ! test -e $f ; then
 fi
 losetup $loop $f
 pvcreate $loop
-vgcreate nova-volumes $loop
+vgcreate cinder-volumes $loop
 
-vgchange -ay nova-volumes
+vgchange -ay cinder-volumes

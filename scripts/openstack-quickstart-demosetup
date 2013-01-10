@@ -231,6 +231,7 @@ fi
 cd /var/lib/openstack-dashboard && su -s /bin/bash -c "umask 0027; python -m 'manage' syncdb --noinput" wwwrun
 
 
+cinder-manage db sync
 nova-manage db sync
 # optional - makes life better with little RAM
 if [ "$DB" = "postgresql" ] ; then
