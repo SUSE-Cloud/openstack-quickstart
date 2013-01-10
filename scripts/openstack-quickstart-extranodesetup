@@ -1,9 +1,15 @@
 #!/bin/bash -x
-# assumes the openstack-compute-node pattern installed
 
 . /etc/openstackquickstartrc
 
 echo "Setting up OpenStack demo extra node..."
+
+function install_packages () {
+  test $# -gt 0 || return
+  rpm -q $* > /dev/null || zypper -n in $*
+}
+
+install_packages patterns-OpenStack-compute-node
 
 # use lxc or qemu, if kvm is unavailable
 if rpm -q openstack-nova-compute >/dev/null && ! grep -q -e vmx -e svm /proc/cpuinfo ; then

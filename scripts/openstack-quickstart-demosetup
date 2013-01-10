@@ -22,6 +22,8 @@ function install_packages () {
   rpm -q $* > /dev/null || zypper -n in $*
 }
 
+install_packages patterns-OpenStack-controller patterns-OpenStack-compute-node
+
 if [ "$DB" = "postgresql" ] ; then
 	install_packages postgresql-server python-psycopg2
 	/etc/init.d/postgresql restart
