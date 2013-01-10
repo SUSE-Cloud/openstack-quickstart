@@ -226,7 +226,7 @@ fi
 
 
 # sync dashboard DB "after" the database is created
-cd /var/lib/openstack-dashboard && su -s /bin/bash -c "umask 0027; python -m 'manage' syncdb" wwwrun
+cd /var/lib/openstack-dashboard && su -s /bin/bash -c "umask 0027; python -m 'manage' syncdb --noinput" wwwrun
 
 
 nova-manage db sync
