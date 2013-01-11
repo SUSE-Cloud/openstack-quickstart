@@ -348,10 +348,10 @@ done
 /usr/sbin/openstack-loopback-lvm
 if [ "$?" -ne "0" ]; then
   # setup failed, so do not use
-  insserv -r openstack-nova-volume
+  insserv -r openstack-cinder-all
 else
   grep -q openstack-loopback-lvm /etc/init.d/boot.local || echo /usr/sbin/openstack-loopback-lvm >> /etc/init.d/boot.local
-  /etc/init.d/openstack-nova-volume restart
+  /etc/init.d/openstack-cinder-all restart
 fi
 
 grep -q bash.openstackrc /etc/bash.bashrc.local ||\
