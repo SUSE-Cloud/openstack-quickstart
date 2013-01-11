@@ -355,6 +355,7 @@ else
   grep -q openstack-loopback-lvm /etc/init.d/boot.local || echo /usr/sbin/openstack-loopback-lvm >> /etc/init.d/boot.local
   for s in api scheduler volume ; do
     /etc/init.d/openstack-cinder-$s restart
+    insserv openstack-cinder-$s
   done
 fi
 
