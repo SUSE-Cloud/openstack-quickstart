@@ -348,10 +348,14 @@ done
 /usr/sbin/openstack-loopback-lvm
 if [ "$?" -ne "0" ]; then
   # setup failed, so do not use
-  insserv -r openstack-cinder-all
+  for s in api scheduler volume ; do
+    insserv -r openstack-cinder-$s
+  done
 else
   grep -q openstack-loopback-lvm /etc/init.d/boot.local || echo /usr/sbin/openstack-loopback-lvm >> /etc/init.d/boot.local
-  /etc/init.d/openstack-cinder-all restart
+  for s in api scheduler volume ; do
+    /etc/init.d/openstack-cinder-$s restart
+  done
 fi
 
 grep -q bash.openstackrc /etc/bash.bashrc.local ||\
