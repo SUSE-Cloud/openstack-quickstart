@@ -81,31 +81,8 @@ EOF
 	/etc/init.d/network start
 fi
 
-# configure dashboard/apache
-cat >/etc/apache2/conf.d/openstack-dashboard.conf <<EOF
-<IfDefine SSL>
-    RewriteEngine On
-    RewriteCond %{SERVER_PORT} !^443$
-    RewriteRule / https://%{HTTP_HOST}%{REQUEST_URI} [L,R]
-
-    <VirtualHost *:443>
-        ServerName www.example.com
-        ServerAdmin webmaster@example.com
-
-        SSLEngine On
-        SSLCertificateFile /etc/apache2/ssl.crt/openstack-dashboard-server.crt
-        SSLCertificateKeyFile /etc/apache2/ssl.key/openstack-dashboard-server.key
-
-        DocumentRoot /var/lib/openstack-dashboard/
-
-        WSGIScriptAlias / /var/lib/openstack-dashboard/openstack_dashboard/wsgi/django.wsgi
-        <Directory /var/lib/openstack-dashboard/openstack_dashboard/wsgi/>
-            Order allow,deny
-            Allow from all
-        </Directory>
-    </VirtualHost>
-</IfDefine>
-EOF
+# configure dashboard/apache sample configuration from the package:
+mv /etc/apache2/conf.d/openstack-dashboard.conf{.sample,}
 a2enmod rewrite
 a2enmod ssl
 a2enmod wsgi
