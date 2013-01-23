@@ -25,7 +25,7 @@ function install_packages () {
 install_packages patterns-OpenStack-controller patterns-OpenStack-compute-node
 
 if [ "$DB" = "postgresql" ] ; then
-	install_packages postgresql-server python-psycopg2
+	install_packages postgresql91-server python-psycopg2
 	/etc/init.d/postgresql restart
 else
 	# start mysql
