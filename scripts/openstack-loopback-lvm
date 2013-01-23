@@ -1,6 +1,6 @@
 #!/bin/sh
 
-f=/var/lib/nova/volumes
+f=/var/lib/cinder/volumes
 loop=/dev/loop0
 modprobe loop
 
@@ -15,10 +15,18 @@ fi
 vgchange -an cinder-volumes
 #losetup -d $loop
 
+# cleanup old nova-volumes volume group
+if vgscan | grep -q nova-volumes ; then
+    echo "cleaning up old nova-volumes VG"
+    vgchange -an nova-volumes
+    vgremove nova-volumes
+    losetup -d $loop
+fi
+
 
 if ! test -e $f ; then
 	# calc wanted size
-	size=$(df -P -k /var/lib/nova/|tail -1| perl -ne 'm/^\S+\s*\d+\s+\d+\s+(\d+)/; print int($1*0.3)')
+	size=$(df -P -k /var/lib/cinder/|tail -1| perl -ne 'm/^\S+\s*\d+\s+\d+\s+(\d+)/; print int($1*0.3)')
 
 	if [ $size -le 2000000 ] ; then
 		echo "error detecting free space or FS too small: $size KB"
