@@ -88,7 +88,7 @@ a2enmod ssl
 a2enmod wsgi
 a2enflag SSL
 
-DASHBOARD_LOCAL_SET=/var/lib/openstack-dashboard/openstack_dashboard/local/local_settings.py
+DASHBOARD_LOCAL_SET=/usr/share/openstack-dashboard/openstack_dashboard/local/local_settings.py
 if grep -q "^\s*CACHE_BACKEND" $DASHBOARD_LOCAL_SET
 then
   sed -i "s|^\s*CACHE_BACKEND.*$|CACHE_BACKEND = 'memcached://127.0.0.1:11211/'|" $DASHBOARD_LOCAL_SET
@@ -194,7 +194,7 @@ fi
 
 
 # sync dashboard DB "after" the database is created
-cd /var/lib/openstack-dashboard && su -s /bin/bash -c "umask 0027; python -m 'manage' syncdb --noinput" wwwrun
+cd /usr/share/openstack-dashboard && su -s /bin/bash -c "umask 0027; python -m 'manage' syncdb --noinput" wwwrun
 
 
 cinder-manage db sync
