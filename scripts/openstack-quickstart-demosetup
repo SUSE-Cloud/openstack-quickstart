@@ -161,6 +161,9 @@ if [ -n "$extensions_path" ]; then
     echo "osapi_extensions_path=" >> /etc/nova/nova.conf
 fi
 
+# configure cinder
+sed -i -e "s,#*[ ]*sql_connection=.*,sql_connection=$DB://cinder:${mpw}@${IP}/cinder," /etc/cinder/cinder.conf
+
 grep -q nova-rootwrap /etc/sudoers || echo "openstack-nova ALL=(ALL) NOPASSWD:/usr/bin/nova-rootwrap" >> /etc/sudoers
 grep -q cinder-rootwrap /etc/sudoers || echo "openstack-cinder ALL=(ALL) NOPASSWD:/usr/bin/cinder-rootwrap" >> /etc/sudoers
 
@@ -192,7 +195,7 @@ if [ "$DB" = "postgresql" ] ; then
 		fi
 	fi
 	sudo -u postgres dropdb keystone # needed for keystone_data.sh
-	for DBNAME in nova keystone glance horizon ; do
+	for DBNAME in nova cinder keystone glance horizon ; do
 		# use ALTER if CREATE fails: the role probably already exists
 		# in that case
 		sudo -u postgres psql -c "CREATE ROLE $DBNAME PASSWORD '$mpw' LOGIN;" || \
@@ -204,7 +207,7 @@ if [ "$DB" = "postgresql" ] ; then
 	insserv postgresql
 else
 	echo | mysql -u root || pwquery=-p
-	for DBNAME in nova keystone glance horizon ; do
+	for DBNAME in nova cinder keystone glance horizon ; do
 		echo "
 		set global character_set_server=latin1;
 		set session character_set_server=latin1;
