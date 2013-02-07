@@ -19,7 +19,7 @@ echo "Setting up OpenStack demo controller..."
 
 function install_packages () {
   test $# -gt 0 || return
-  rpm -q $* > /dev/null || zypper -n in $*
+  rpm -q $* > /dev/null || zypper -n in $* || exit 1
 }
 
 install_packages patterns-OpenStack-controller patterns-OpenStack-compute-node
