@@ -307,7 +307,7 @@ su - $KEYSTONE_SYSTEM_USER -s /bin/bash -c "keystone-manage --config-file=/etc/k
 
 # 2012-02-28 keystone light setup
 /etc/init.d/openstack-keystone restart
-ENABLED_SERVICES=${ENABLED_SERVICES:-g-api,g-reg,key,n-api,n-cpu,n-net,n-vol,n-sch,n-novnc,n-xvnc,horizon,mysql,rabbit}
+ENABLED_SERVICES=${ENABLED_SERVICES:-g-api,g-reg,key,n-api,n-cpu,n-net,n-vol,c-api,n-sch,n-novnc,n-xvnc,horizon,swift,mysql,rabbit}
 KEYSTONE_AUTH_HOST=${KEYSTONE_AUTH_HOST:-$SERVICE_HOST}
 KEYSTONE_AUTH_PORT=${KEYSTONE_AUTH_PORT:-35357}
 KEYSTONE_AUTH_PROTOCOL=${KEYSTONE_AUTH_PROTOCOL:-http}
