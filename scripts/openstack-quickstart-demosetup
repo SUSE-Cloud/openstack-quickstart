@@ -227,7 +227,6 @@ done
 sed -i "s%sql_connection =.*%sql_connection = $DB://glance:$mpw@$IP/glance%" /etc/glance/glance-registry.conf /etc/glance/glance-api.conf # db_sync is broken for postgresql
 #sed -i 's%sql_connection =.*%sql_connection = sqlite:////var/lib/glance/glance.sqlite%' /etc/glance/glance-registry.conf
 glance-manage db_sync
-chown -R $GLANCE_SYSTEM_USER:$GLANCE_SYSTEM_GROUP /var/lib/glance /var/log/glance
 
 # keystone demo setup, based on devstack.sh
 
@@ -290,8 +289,6 @@ KEYSTONE_AUTH_PORT=${KEYSTONE_AUTH_PORT:-35357}
 KEYSTONE_AUTH_PROTOCOL=${KEYSTONE_AUTH_PROTOCOL:-http}
 SERVICE_ENDPOINT=$KEYSTONE_AUTH_PROTOCOL://$KEYSTONE_AUTH_HOST:$KEYSTONE_AUTH_PORT/v2.0
 ADMIN_PASSWORD=$ADMIN_PASSWORD SERVICE_TENANT_NAME=service SERVICE_PASSWORD=$SERVICE_TOKEN SERVICE_TOKEN=$SERVICE_TOKEN SERVICE_ENDPOINT=$SERVICE_ENDPOINT DEVSTACK_DIR=/root ENABLED_SERVICES=$ENABLED_SERVICES bash /usr/lib/devstack/keystone_data.sh
-
-chown $KEYSTONE_SYSTEM_USER:$KEYSTONE_SYSTEM_GROUP -R /var/lib/keystone/
 
 
 rm -f /usr/lib/python*/site-packages/nova-iptables.lock.lock # workaround bug
