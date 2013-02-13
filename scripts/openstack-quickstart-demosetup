@@ -39,9 +39,10 @@ if rpm -q openstack-nova-compute >/dev/null ; then
     if [ "$MODE" = lxc ] ; then
 	sed -i -e 's/\(libvirt_type\).*/\1=lxc/' /etc/nova/nova.conf
 	install_packages lxc
-	echo mount -t cgroup none /cgroup >> /etc/init.d/boot.local
-	mkdir /cgroup
-	mount -t cgroup none /cgroup
+        # not sure what this is good for, cgroups is and should be mounted under /sys/fs/cgroup
+	#echo mount -t cgroup none /cgroup >> /etc/init.d/boot.local
+	#mkdir /cgroup
+        #mount -t cgroup none /cgroup
     else
 	modprobe kvm-intel ; modprobe kvm-amd
 	sed -i -e 's/\(MODULES_LOADED_ON_BOOT="\)/\1kvm-intel kvm-amd\ /' /etc/sysconfig/kernel
@@ -126,16 +127,19 @@ sed -i -e "s;127.0.0.1;$IP;" /etc/nova/api-paste.ini /etc/glance/glance-api.conf
 
 # configure nova
 perl -i.bak -pe "s,sql_connection=\w+://\w+:[^\@:]*,sql_connection=$DB://nova:$mpw,; s/<IP>/$IP/g; s/(network_manager).*/\$1=nova.network.manager.FlatDHCPManager/;" /etc/nova/nova.conf
-echo "flat_network_bridge=$br" >> /etc/nova/nova.conf
-echo "bridge_interface=$br" >> /etc/nova/nova.conf
-echo 'connection_type=libvirt' >> /etc/nova/nova.conf
-echo 'image_service=nova.image.glance.GlanceImageService' >> /etc/nova/nova.conf
-echo "glance_api_servers=$IP:9292" >> /etc/nova/nova.conf
-echo "auth_strategy=keystone" >> /etc/nova/nova.conf
-echo "novncproxy_base_url=http://$IP:6080/vnc_auto.html" >> /etc/nova/nova.conf
-extensions_path=`ls -d /usr/lib*/python*/site-packages/extensions 2> /dev/null | head -n 1`
+
+openstack-config --set /etc/nova/nova.conf DEFAULT flat_network_bridge "$br"
+openstack-config --set /etc/nova/nova.conf DEFAULT bridge_interface "$br"
+openstack-config --set /etc/nova/nova.conf DEFAULT connection_type "libvirt"
+openstack-config --set /etc/nova/nova.conf DEFAULT image_service "nova.image.glance.GlanceImageService"
+openstack-config --set /etc/nova/nova.conf DEFAULT glance_api_servers "$IP:9292"
+openstack-config --set /etc/nova/nova.conf DEFAULT auth_strategy keystone
+openstack-config --set /etc/nova/nova.conf DEFAULT novncproxy_base_url "http://$IP:6080/vnc_auto.html"
+openstack-config --set /etc/nova/nova.conf DEFAULT volume_api_class nova.volume.cinder.API
+
+extensions_path=$(ls -d /usr/lib*/python*/site-packages/extensions 2> /dev/null | head -n 1)
 if [ -n "$extensions_path" ]; then
-    echo "osapi_extensions_path=" >> /etc/nova/nova.conf
+    openstack-config --set /etc/nova/nova.conf DEFAULT osapi_extensions_path "$extensions_path"
 fi
 
 # configure cinder
@@ -231,57 +235,16 @@ glance-manage db_sync
 # keystone demo setup, based on devstack.sh
 
 sed -i -e 's/kvs/sql/' -e "s,^.*connection =.*,connection = $DB://keystone:$mpw@$IP/keystone," /etc/keystone/keystone.conf
-#sed -i -e 's/kvs/sql/' -e 's,^connection =.*,connection =sqlite:////var/lib/keystone/keystone.sqlite,' /etc/keystone/keystone.conf
 rm -f /var/lib/keystone/keystone.sqlite # cleanup DB as devstack's script fails otherwise
-sed -i -e "s/^.*admin_token .*/admin_token = $SERVICE_TOKEN/" /etc/keystone/keystone.conf
-sed -i -e "s/.*\(driver = keystone.catalog.backends.templated.TemplatedCatalog\)/\1/" /etc/keystone/keystone.conf
 
 KEYSTONE_CATALOG=/etc/keystone/default_catalog.templates
 sed -e "s,%SERVICE_HOST%,$SERVICE_HOST,g" -e "s/%S3_SERVICE_PORT%/8080/" $KEYSTONE_CATALOG.sample > $KEYSTONE_CATALOG
+openstack-config --set /etc/keystone/keystone.conf DEFAULT admin_token "$SERVICE_TOKEN"
+openstack-config --set /etc/keystone/keystone.conf catalog driver keystone.catalog.backends.templated.TemplatedCatalog
+
 # Upgrade the database to the latest schema
 su - $KEYSTONE_SYSTEM_USER -s /bin/bash -c "keystone-manage --config-file=/etc/keystone/keystone.conf db_sync"
-#
-## Tenants
-#keystone-manage tenant add admin
-#keystone-manage tenant add demo
-#
-## Users
-#keystone-manage user add admin $pw
-#keystone-manage user add demo $pw
-#
-## Roles
-#keystone-manage role add Admin
-#keystone-manage role add Member
-#keystone-manage role add KeystoneAdmin
-#keystone-manage role add KeystoneServiceAdmin
-#keystone-manage role grant Admin admin admin
-#keystone-manage role grant Member demo demo
-#keystone-manage role grant Admin admin demo
-#keystone-manage role grant Admin admin
-#keystone-manage role grant KeystoneAdmin admin
-#keystone-manage role grant KeystoneServiceAdmin admin
-#
-## Services
-#keystone-manage service add nova compute "Nova Compute Service"
-#keystone-manage service add glance image "Glance Image Service"
-#keystone-manage service add keystone identity "Keystone Identity Service"
-#
-##endpointTemplates
-#keystone-manage endpointTemplates add RegionOne nova http://$IP:8774/v1.1/%tenant_id% http://$IP:8774/v1.1/%tenant_id%  http://$IP:8774/v1.1/%tenant_id% 1 1
-#keystone-manage endpointTemplates add RegionOne glance http://$IP:9292/v1.1/%tenant_id% http://$IP:9292/v1.1/%tenant_id% http://$IP:9292/v1.1/%tenant_id% 1 1
-#keystone-manage endpointTemplates add RegionOne keystone http://$IP:5000/v2.0 http://$IP:35357/v2.0 http://$IP:5000/v2.0 1 1
-#
-## Tokens
-#keystone-manage token add $SERVICE_TOKEN admin admin 2023-02-23T00:42
-#
-## EC2 related creds - note we are setting the secret key to ADMIN_PASSWORD
-## but keystone doesn't parse them - it is just a blob from keystone's
-## point of view
-#keystone-manage credentials add admin EC2 'admin' $pw admin  || echo "no support for adding credentials"
-#keystone-manage credentials add demo EC2 'demo' $pw demo  || echo "no support for adding credentials"
 
-
-# 2012-02-28 keystone light setup
 /etc/init.d/openstack-keystone restart
 ENABLED_SERVICES=${ENABLED_SERVICES:-g-api,g-reg,key,n-api,n-cpu,n-net,n-vol,c-api,n-sch,n-novnc,n-xvnc,q-svc,heat,horizon,swift,mysql,rabbit}
 KEYSTONE_AUTH_HOST=${KEYSTONE_AUTH_HOST:-$SERVICE_HOST}
@@ -290,6 +253,8 @@ KEYSTONE_AUTH_PROTOCOL=${KEYSTONE_AUTH_PROTOCOL:-http}
 SERVICE_ENDPOINT=$KEYSTONE_AUTH_PROTOCOL://$KEYSTONE_AUTH_HOST:$KEYSTONE_AUTH_PORT/v2.0
 ADMIN_PASSWORD=$ADMIN_PASSWORD SERVICE_TENANT_NAME=service SERVICE_PASSWORD=$SERVICE_TOKEN SERVICE_TOKEN=$SERVICE_TOKEN SERVICE_ENDPOINT=$SERVICE_ENDPOINT DEVSTACK_DIR=/root ENABLED_SERVICES=$ENABLED_SERVICES bash /usr/lib/devstack/keystone_data.sh
 
+# not sure if we should really do this ?!
+chown $KEYSTONE_SYSTEM_USER:$KEYSTONE_SYSTEM_GROUP -R /var/lib/keystone/
 
 rm -f /usr/lib/python*/site-packages/nova-iptables.lock.lock # workaround bug
 rm -f /var/lock/SuSEfirewall2.booting # workaround openSUSE bug
