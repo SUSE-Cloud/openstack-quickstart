@@ -137,8 +137,6 @@ extensions_path=`ls -d /usr/lib*/python*/site-packages/extensions 2> /dev/null |
 if [ -n "$extensions_path" ]; then
     echo "osapi_extensions_path=" >> /etc/nova/nova.conf
 fi
-# Use cinder:
-echo "volume_api_class=nova.volume.cinder.API" >> /etc/nova/nova.conf
 
 # configure cinder
 openstack-config --set /etc/cinder/cinder.conf DEFAULT sql_connection "$DB://cinder:${mpw}@${IP}/cinder"
