@@ -269,7 +269,7 @@ grep -q ntp.org /etc/ntp.conf || echo server pool.ntp.org >> /etc/ntp.conf
 sed -i -e 's;.*user.*=.*;user = "qemu";' /etc/libvirt/qemu.conf
 
 # start services
-for s in ntp libvirtd $DB rabbitmq-server iscsitarget open-iscsi tgtd memcached apache2 openstack-nova-api openstack-nova-conductor openstack-nova-scheduler openstack-nova-network openstack-nova-compute openstack-nova-vncproxy openstack-glance-api openstack-glance-registry openstack-keystone openstack-nova-consoleauth openstack-novncproxy
+for s in ntp libvirtd $DB rabbitmq-server iscsitarget open-iscsi tgtd memcached apache2 openstack-nova-api openstack-nova-conductor openstack-nova-scheduler openstack-nova-network openstack-nova-compute openstack-nova-vncproxy openstack-glance-api openstack-glance-registry openstack-keystone openstack-nova-consoleauth openstack-novncproxy openstack-quantum
 do
   i=/etc/init.d/$s
   if [ -x $i ] ; then
