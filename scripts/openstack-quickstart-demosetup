@@ -126,7 +126,7 @@ EOSEC
 sed -i -e "s;127.0.0.1;$IP;" /etc/nova/api-paste.ini /etc/glance/glance-api.conf /etc/glance/glance-registry.conf
 
 # configure nova
-perl -i.bak -pe "s,sql_connection=\w+://\w+:[^\@:]*,sql_connection=$DB://nova:$mpw,; s/<IP>/$IP/g; s/(network_manager).*/\$1=nova.network.manager.FlatDHCPManager/;" /etc/nova/nova.conf
+perl -i.bak -pe "s,sql_connection=\w+://\w+:[^\@:]*,sql_connection=$DB://nova:$mpw,; s/<IP>/$IP/g;" /etc/nova/nova.conf
 
 openstack-config --set /etc/nova/nova.conf DEFAULT flat_network_bridge "$br"
 openstack-config --set /etc/nova/nova.conf DEFAULT bridge_interface "$br"
@@ -146,18 +146,9 @@ fi
 openstack-config --set /etc/cinder/cinder.conf DEFAULT sql_connection "$DB://cinder:${mpw}@${IP}/cinder"
 
 perl -i -pe "s/%SERVICE_TOKEN%/$SERVICE_TOKEN/;" /etc/nova/api-paste.ini # obsolete 2012-03-19?
-for m in cinder nova glance ; do
+for m in cinder nova glance quantum ; do
 	sed -i -e 's/%SERVICE_TENANT_NAME%/service/' -e "s/%SERVICE_USER%/$m/" -e "s/%SERVICE_PASSWORD%/$SERVICE_TOKEN\nadmin_token = $SERVICE_TOKEN/" /etc/$m/*.ini /etc/$m/*.conf
 done
-
-# replace pipelines to use keystone
-function replace_pipeline() {
-    sed "/\[pipeline:$1\]/,/\[/s/^pipeline = .*/pipeline = $2/" -i /etc/nova/api-paste.ini
-}
-replace_pipeline "ec2cloud" "ec2faultwrap logrequest totoken authtoken keystonecontext cloudrequest authorizer validator ec2executor"
-replace_pipeline "ec2admin" "ec2faultwrap logrequest totoken authtoken keystonecontext adminrequest authorizer ec2executor"
-replace_pipeline "openstack_compute_api_v2" "faultwrap authtoken keystonecontext ratelimit osapi_compute_app_v2"
-replace_pipeline "openstack_volume_api_v1" "faultwrap authtoken keystonecontext ratelimit osapi_volume_app_v1"
 
 if [ "$DB" = "postgresql" ] ; then
 	DATADIR=/var/lib/pgsql/data
