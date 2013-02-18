@@ -243,9 +243,6 @@ KEYSTONE_AUTH_PROTOCOL=${KEYSTONE_AUTH_PROTOCOL:-http}
 SERVICE_ENDPOINT=$KEYSTONE_AUTH_PROTOCOL://$KEYSTONE_AUTH_HOST:$KEYSTONE_AUTH_PORT/v2.0
 ADMIN_PASSWORD=$ADMIN_PASSWORD SERVICE_TENANT_NAME=service SERVICE_PASSWORD=$SERVICE_TOKEN SERVICE_TOKEN=$SERVICE_TOKEN SERVICE_ENDPOINT=$SERVICE_ENDPOINT DEVSTACK_DIR=/root ENABLED_SERVICES=$ENABLED_SERVICES bash /usr/lib/devstack/keystone_data.sh
 
-# not sure if we should really do this ?!
-chown $KEYSTONE_SYSTEM_USER:$KEYSTONE_SYSTEM_GROUP -R /var/lib/keystone/
-
 rm -f /usr/lib/python*/site-packages/nova-iptables.lock.lock # workaround bug
 rm -f /var/lock/SuSEfirewall2.booting # workaround openSUSE bug
 if test -e /sbin/SuSEfirewall2; then
