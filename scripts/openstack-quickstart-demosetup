@@ -18,18 +18,18 @@ HORIZON_SYSTEM_USER=openstack-horizon
 echo "Setting up OpenStack demo controller..."
 
 function install_packages () {
-  test $# -gt 0 || return
-  rpm -q $* > /dev/null || zypper -n in $* || exit 1
+    test $# -gt 0 || return
+    rpm -q $* > /dev/null || zypper -n in $* || exit 1
 }
 
 install_packages patterns-OpenStack-controller patterns-OpenStack-compute-node patterns-OpenStack-clients patterns-OpenStack-network-node
 
 if [ "$DB" = "postgresql" ] ; then
-	install_packages postgresql91-server python-psycopg2
-	/etc/init.d/postgresql restart
+    install_packages postgresql91-server python-psycopg2
+    /etc/init.d/postgresql restart
 else
-	# start mysql
-	/etc/init.d/mysql start
+    # start mysql
+    /etc/init.d/mysql start
 fi
 
 
@@ -38,14 +38,14 @@ grep -q -e vmx -e svm /proc/cpuinfo || MODE=lxc
 if rpm -q openstack-nova-compute >/dev/null ; then
     if [ "$MODE" = lxc ] ; then
         openstack-config --set /etc/nova/nova.conf DEFAULT libvirt_type lxc
-	install_packages lxc
+        install_packages lxc
         # not sure what this is good for, cgroups is and should be mounted under /sys/fs/cgroup
-	#echo mount -t cgroup none /cgroup >> /etc/init.d/boot.local
-	#mkdir /cgroup
+        #echo mount -t cgroup none /cgroup >> /etc/init.d/boot.local
+        #mkdir /cgroup
         #mount -t cgroup none /cgroup
     else
-	modprobe kvm-intel ; modprobe kvm-amd
-	sed -i -e 's/\(MODULES_LOADED_ON_BOOT="\)/\1kvm-intel kvm-amd\ /' /etc/sysconfig/kernel
+        modprobe kvm-intel ; modprobe kvm-amd
+        sed -i -e 's/\(MODULES_LOADED_ON_BOOT="\)/\1kvm-intel kvm-amd\ /' /etc/sysconfig/kernel
     fi
     modprobe nbd
     sed -i -e 's/\(MODULES_LOADED_ON_BOOT="\)/\1nbd\ /' /etc/sysconfig/kernel
@@ -58,12 +58,12 @@ echo 1 > /proc/sys/net/ipv4/ip_forward
 
 # configure bridge
 if [ ! -e /etc/sysconfig/network/ifcfg-$br ] ; then
-	echo "net.ipv4.conf.all.proxy_arp = 1" >> /etc/sysctl.conf
-	/etc/init.d/network stop
-	ifdown eth0 # because systemd ignores the above
-	sed -i -e "s/\(BOOTPROTO\).*/\1='static'/"     \
-	       -e "s|^\(IPADDR\).*|\1='0.0.0.0\\/32'|" /etc/sysconfig/network/ifcfg-eth0
-	cat >/etc/sysconfig/network/ifcfg-$br <<EOF
+    echo "net.ipv4.conf.all.proxy_arp = 1" >> /etc/sysctl.conf
+    /etc/init.d/network stop
+    ifdown eth0 # because systemd ignores the above
+    sed -i -e "s/\(BOOTPROTO\).*/\1='static'/"     \
+           -e "s|^\(IPADDR\).*|\1='0.0.0.0\\/32'|" /etc/sysconfig/network/ifcfg-eth0
+    cat >/etc/sysconfig/network/ifcfg-$br <<EOF
 BOOTPROTO='dhcp4'
 BRIDGE='yes'
 BRIDGE_FORWARDDELAY='0'
@@ -79,7 +79,7 @@ REMOTE_IPADDR=''
 STARTMODE='onboot'
 USERCONTROL='no'
 EOF
-	/etc/init.d/network start
+    /etc/init.d/network start
 fi
 
 # configure dashboard/apache sample configuration from the package:
@@ -90,15 +90,13 @@ a2enmod wsgi
 a2enflag SSL
 
 DASHBOARD_LOCAL_SET=/usr/share/openstack-dashboard/openstack_dashboard/local/local_settings.py
-if grep -q "^\s*CACHE_BACKEND" $DASHBOARD_LOCAL_SET
-then
-  sed -i "s|^\s*CACHE_BACKEND.*$|CACHE_BACKEND = 'memcached://127.0.0.1:11211/'|" $DASHBOARD_LOCAL_SET
+if grep -q "^\s*CACHE_BACKEND" $DASHBOARD_LOCAL_SET ; then
+    sed -i "s|^\s*CACHE_BACKEND.*$|CACHE_BACKEND = 'memcached://127.0.0.1:11211/'|" $DASHBOARD_LOCAL_SET
 else
-  echo "CACHE_BACKEND = 'memcached://127.0.0.1:11211/'" >> $DASHBOARD_LOCAL_SET
+    echo "CACHE_BACKEND = 'memcached://127.0.0.1:11211/'" >> $DASHBOARD_LOCAL_SET
 fi
 
-if [ "$DB" = "postgresql" ]
-then
+if [ "$DB" = "postgresql" ] ; then
 cat >> $DASHBOARD_LOCAL_SET <<EODASHDB
 DATABASES = {
     'default': {
@@ -112,9 +110,9 @@ EODASHDB
 fi
 
 if grep -q "^USE_SSL =" $DASHBOARD_LOCAL_SET; then
-  sed -i -e "s/^USE_SSL =.*/USE_SSL = True/" $DASHBOARD_LOCAL_SET
+    sed -i -e "s/^USE_SSL =.*/USE_SSL = True/" $DASHBOARD_LOCAL_SET
 else
-  echo "USE_SSL = True" >> $DASHBOARD_LOCAL_SET
+    echo "USE_SSL = True" >> $DASHBOARD_LOCAL_SET
 fi
 # Use 'secure' session and CSRF cookies (bnc#753582):
 cat >> $DASHBOARD_LOCAL_SET <<EOSEC
@@ -143,44 +141,44 @@ openstack-config --set /etc/cinder/cinder.conf DEFAULT sql_connection "$DB://cin
 
 perl -i -pe "s/%SERVICE_TOKEN%/$SERVICE_TOKEN/;" /etc/nova/api-paste.ini # obsolete 2012-03-19?
 for m in cinder nova glance quantum ; do
-	sed -i -e 's/%SERVICE_TENANT_NAME%/service/' -e "s/%SERVICE_USER%/$m/" -e "s/%SERVICE_PASSWORD%/$SERVICE_TOKEN\nadmin_token = $SERVICE_TOKEN/" /etc/$m/*.ini /etc/$m/*.conf
+    sed -i -e 's/%SERVICE_TENANT_NAME%/service/' -e "s/%SERVICE_USER%/$m/" -e "s/%SERVICE_PASSWORD%/$SERVICE_TOKEN\nadmin_token = $SERVICE_TOKEN/" /etc/$m/*.ini /etc/$m/*.conf
 done
 
 if [ "$DB" = "postgresql" ] ; then
-	DATADIR=/var/lib/pgsql/data
-	if ! grep -q ::/0 $DATADIR/pg_hba.conf ; then
+    DATADIR=/var/lib/pgsql/data
+    if ! grep -q ::/0 $DATADIR/pg_hba.conf ; then
         sed -i "s/^\(host .*\) ident\(.*\)/\1 md5 \2/" "$DATADIR/pg_hba.conf"
         sed -i "s/^\(local \)/local horizon all md5 sameuser\n\1/" "$DATADIR/pg_hba.conf"
-		# allow remote connections:
-		echo "listen_addresses = '*'" >> $DATADIR/postgresql.conf
-		echo "host all all 0.0.0.0/0 md5  sameuser" >> $DATADIR/pg_hba.conf
-		echo "host all all      ::/0 md5  sameuser" >> $DATADIR/pg_hba.conf
-		if ! rpm -q postgresql | grep -q postgresql-8 ; then
-			sed -i 's/\s*sameuser$//' $DATADIR/pg_hba.conf # adapt config syntax to postgresql-9
-		fi
-	fi
-	sudo -u postgres dropdb keystone || true # needed for keystone_data.sh
-	for DBNAME in nova cinder keystone glance horizon ; do
-		# use ALTER if CREATE fails: the role probably already exists
-		# in that case
-		sudo -u postgres psql -c "CREATE ROLE $DBNAME PASSWORD '$mpw' LOGIN;" || \
-		sudo -u postgres psql -c "ALTER ROLE $DBNAME PASSWORD '$mpw' LOGIN;"
-		sudo -u postgres createdb -O $DBNAME $DBNAME || true
-	done
-	sudo -u postgres createuser -s root
-	/etc/init.d/postgresql restart
-	insserv postgresql
+        # allow remote connections:
+        echo "listen_addresses = '*'" >> $DATADIR/postgresql.conf
+        echo "host all all 0.0.0.0/0 md5  sameuser" >> $DATADIR/pg_hba.conf
+        echo "host all all      ::/0 md5  sameuser" >> $DATADIR/pg_hba.conf
+        if ! rpm -q postgresql | grep -q postgresql-8 ; then
+            sed -i 's/\s*sameuser$//' $DATADIR/pg_hba.conf # adapt config syntax to postgresql-9
+        fi
+    fi
+    sudo -u postgres dropdb keystone || true # needed for keystone_data.sh
+    for DBNAME in nova cinder keystone glance horizon ; do
+        # use ALTER if CREATE fails: the role probably already exists
+        # in that case
+        sudo -u postgres psql -c "CREATE ROLE $DBNAME PASSWORD '$mpw' LOGIN;" || \
+        sudo -u postgres psql -c "ALTER ROLE $DBNAME PASSWORD '$mpw' LOGIN;"
+        sudo -u postgres createdb -O $DBNAME $DBNAME || true
+    done
+    sudo -u postgres createuser -s root
+    /etc/init.d/postgresql restart
+    insserv postgresql
 else
-	echo | mysql -u root || pwquery=-p
-	for DBNAME in nova cinder keystone glance horizon ; do
-		echo "
-		set global character_set_server=latin1;
-		set session character_set_server=latin1;
-		CREATE DATABASE IF NOT EXISTS $DBNAME;
-		GRANT ALL PRIVILEGES ON $DBNAME.* TO '$DBNAME'@localhost IDENTIFIED BY '$mpw';
-		GRANT ALL PRIVILEGES ON $DBNAME.* TO '$DBNAME'@'%' IDENTIFIED BY '$mpw';
-		" | mysql -u root $pwquery
-	done
+    echo | mysql -u root || pwquery=-p
+    for DBNAME in nova cinder keystone glance horizon ; do
+        echo "
+        set global character_set_server=latin1;
+        set session character_set_server=latin1;
+        CREATE DATABASE IF NOT EXISTS $DBNAME;
+        GRANT ALL PRIVILEGES ON $DBNAME.* TO '$DBNAME'@localhost IDENTIFIED BY '$mpw';
+        GRANT ALL PRIVILEGES ON $DBNAME.* TO '$DBNAME'@'%' IDENTIFIED BY '$mpw';
+        " | mysql -u root $pwquery
+    done
 fi
 
 
@@ -239,15 +237,15 @@ ADMIN_PASSWORD=$ADMIN_PASSWORD SERVICE_TENANT_NAME=service SERVICE_PASSWORD=$SER
 rm -f /usr/lib/python*/site-packages/nova-iptables.lock.lock # workaround bug
 rm -f /var/lock/SuSEfirewall2.booting # workaround openSUSE bug
 if test -e /sbin/SuSEfirewall2; then
-  SuSEfirewall2 stop	# interferes with openstack's network/firewall
-  insserv -r SuSEfirewall2_setup
-  insserv -r SuSEfirewall2_init
+    SuSEfirewall2 stop        # interferes with openstack's network/firewall
+    insserv -r SuSEfirewall2_setup
+    insserv -r SuSEfirewall2_init
 fi
 if which aa-complain >&/dev/null; then
     aa-complain /etc/apparmor.d/usr.sbin.libvirtd
 fi
 if [ -e /etc/init.d/boot.apparmor ]; then
-    /etc/init.d/boot.apparmor stop		# interferes with openstack-nova-network
+    /etc/init.d/boot.apparmor stop                # interferes with openstack-nova-network
     insserv -r boot.apparmor
 fi
 
@@ -260,25 +258,25 @@ sed -i -e 's;.*user.*=.*;user = "qemu";' /etc/libvirt/qemu.conf
 # start services
 for s in ntp libvirtd $DB rabbitmq-server iscsitarget open-iscsi tgtd memcached apache2 openstack-nova-api openstack-nova-conductor openstack-nova-scheduler openstack-nova-network openstack-nova-compute openstack-nova-vncproxy openstack-glance-api openstack-glance-registry openstack-keystone openstack-nova-consoleauth openstack-novncproxy openstack-quantum
 do
-  i=/etc/init.d/$s
-  if [ -x $i ] ; then
-    insserv $s
-    $i restart
-  fi
+    i=/etc/init.d/$s
+    if [ -x $i ] ; then
+        insserv $s
+        $i restart
+    fi
 done
 
 /usr/sbin/openstack-loopback-lvm
 if [ "$?" -ne "0" ]; then
-  # setup failed, so do not use
-  for s in api scheduler volume ; do
-    insserv -r openstack-cinder-$s
-  done
+    # setup failed, so do not use
+    for s in api scheduler volume ; do
+        insserv -r openstack-cinder-$s
+    done
 else
-  grep -q openstack-loopback-lvm /etc/init.d/boot.local || echo /usr/sbin/openstack-loopback-lvm >> /etc/init.d/boot.local
-  for s in api scheduler volume ; do
-    /etc/init.d/openstack-cinder-$s restart
-    insserv openstack-cinder-$s
-  done
+    grep -q openstack-loopback-lvm /etc/init.d/boot.local || echo /usr/sbin/openstack-loopback-lvm >> /etc/init.d/boot.local
+    for s in api scheduler volume ; do
+        /etc/init.d/openstack-cinder-$s restart
+        insserv openstack-cinder-$s
+    done
 fi
 
 grep -q bash.openstackrc /etc/bash.bashrc.local ||\
@@ -288,10 +286,10 @@ setcreds admin $pw" >> /etc/bash.bashrc.local
 
 . /etc/bash.bashrc.local
 for user in demo admin ; do
-	setcreds $user $pw
-	nova secgroup-add-rule default icmp -1 -1 0.0.0.0/0 # to allow ping
-	#nova secgroup-add-rule default tcp 22 22 0.0.0.0/0 # to allow only SSH or do
-	nova secgroup-add-rule default tcp 1 65535 0.0.0.0/0 # to allow all TCP
-	nova secgroup-add-rule default udp 1 65535 0.0.0.0/0 # and all UDP
-	nova secgroup-list-rules default # lists the rules
+    ketcreds $user $pw
+    nova secgroup-add-rule default icmp -1 -1 0.0.0.0/0 # to allow ping
+    #nova secgroup-add-rule default tcp 22 22 0.0.0.0/0 # to allow only SSH or do
+    nova secgroup-add-rule default tcp 1 65535 0.0.0.0/0 # to allow all TCP
+    nova secgroup-add-rule default udp 1 65535 0.0.0.0/0 # and all UDP
+    nova secgroup-list-rules default # lists the rules
 done
