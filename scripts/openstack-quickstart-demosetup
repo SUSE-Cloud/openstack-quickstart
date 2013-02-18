@@ -216,9 +216,6 @@ nova-manage network create --fixed_range_v4=$testnet --label=testnet
 
 # setup glance
 
-for f in api registry ; do
-  grep paste_deploy /etc/glance/glance-$f.conf || echo -e "[paste_deploy]\nflavor = keystone" >> /etc/glance/glance-$f.conf
-done
 sed -i "s%sql_connection =.*%sql_connection = $DB://glance:$mpw@$IP/glance%" /etc/glance/glance-registry.conf /etc/glance/glance-api.conf # db_sync is broken for postgresql
 #sed -i 's%sql_connection =.*%sql_connection = sqlite:////var/lib/glance/glance.sqlite%' /etc/glance/glance-registry.conf
 glance-manage db_sync
