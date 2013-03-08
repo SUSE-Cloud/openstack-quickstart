@@ -17,7 +17,7 @@ cd /
 for n in nova keystone glance horizon ; do
 	sudo -u postgres dropdb $n
 	sudo -u postgres dropuser $n
-    echo "drop database $n;" | mysql
+    which mysql &> /dev/null && echo "drop database $n;" | mysql
 done
 
 for m in /var/lib/nova/instances/*/rootfs ; do
