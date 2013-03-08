@@ -13,6 +13,12 @@ KEYSTONE_SYSTEM_USER=openstack-keystone
 KEYSTONE_SYSTEM_GROUP=openstack-keystone
 GLANCE_SYSTEM_USER=openstack-glance
 GLANCE_SYSTEM_GROUP=openstack-glance
+CINDER_SYSTEM_USER=openstack-cinder
+CINDER_SYSTEM_GROUP=openstack-cinder
+QUANTUM_SYSTEM_USER=openstack-quantum
+QUANTUM_SYSTEM_GROUP=openstack-quantum
+NOVA_SYSTEM_USER=openstack-nova
+NOVA_SYSTEM_GROUP=openstack-nova
 HORIZON_SYSTEM_USER=openstack-horizon
 
 echo "Setting up OpenStack demo controller..."
@@ -20,6 +26,11 @@ echo "Setting up OpenStack demo controller..."
 function install_packages () {
     test $# -gt 0 || return
     rpm -q $* > /dev/null || zypper -n in $* || exit 1
+}
+
+function run_as () {
+    test $# -eq 2 || (echo "Bad usage of run_as function. Arguments: $*"; exit 1)
+    su - $1 -s /bin/bash -c "$2"
 }
 
 install_packages patterns-OpenStack-controller patterns-OpenStack-compute-node patterns-OpenStack-clients patterns-OpenStack-network-node
@@ -188,11 +199,11 @@ fi
 
 
 # sync dashboard DB "after" the database is created
-cd /usr/share/openstack-dashboard && su -s /bin/bash -c "umask 0027; python -m 'manage' syncdb --noinput" wwwrun
+run_as wwwrun "cd /usr/share/openstack-dashboard; umask 0027; python -m 'manage' syncdb --noinput"
 
 
-cinder-manage db sync
-nova-manage db sync
+run_as $CINDER_SYSTEM_USER "cinder-manage db sync"
+run_as $NOVA_SYSTEM_USER "nova-manage db sync"
 # optional - makes life better with little RAM
 if [ "$DB" = "postgresql" ] ; then
     echo "
@@ -209,15 +220,15 @@ else
     " | mysql -u root $pwquery
 fi
 
-#nova-manage network create 10.10.134.32/27 1 32
-nova-manage network create --fixed_range_v4=$testnet --label=testnet
+#run_as $NOVA_SYSTEM_USER "nova-manage network create 10.10.134.32/27 1 32"
+run_as $NOVA_SYSTEM_USER "nova-manage network create --fixed_range_v4=$testnet --label=testnet"
 
 
 # setup glance
 
 sed -i "s%sql_connection =.*%sql_connection = $DB://glance:$mpw@$IP/glance%" /etc/glance/glance-registry.conf /etc/glance/glance-api.conf # db_sync is broken for postgresql
 #sed -i 's%sql_connection =.*%sql_connection = sqlite:////var/lib/glance/glance.sqlite%' /etc/glance/glance-registry.conf
-glance-manage db_sync
+run_as $GLANCE_SYSTEM_USER "glance-manage db_sync"
 
 # keystone demo setup, based on devstack.sh
 
@@ -229,7 +240,7 @@ sed -e "s,%SERVICE_HOST%,$SERVICE_HOST,g" -e "s/%S3_SERVICE_PORT%/8080/" $KEYSTO
 openstack-config --set /etc/keystone/keystone.conf DEFAULT admin_token "$SERVICE_TOKEN"
 
 # Upgrade the database to the latest schema
-su - $KEYSTONE_SYSTEM_USER -s /bin/bash -c "keystone-manage --config-file=/etc/keystone/keystone.conf db_sync"
+run_as $KEYSTONE_SYSTEM_USER "keystone-manage --config-file=/etc/keystone/keystone.conf db_sync"
 
 /etc/init.d/openstack-keystone restart
 ENABLED_SERVICES=${ENABLED_SERVICES:-g-api,g-reg,key,n-api,n-cpu,n-net,n-vol,c-api,n-sch,n-novnc,n-xvnc,q-svc,heat,horizon,swift,mysql,rabbit}
