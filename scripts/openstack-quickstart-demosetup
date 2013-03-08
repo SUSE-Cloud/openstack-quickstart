@@ -25,7 +25,12 @@ function install_packages () {
 install_packages patterns-OpenStack-controller patterns-OpenStack-compute-node patterns-OpenStack-clients patterns-OpenStack-network-node
 
 if [ "$DB" = "postgresql" ] ; then
-    install_packages postgresql91-server python-psycopg2
+    grep -q "SUSE Linux Enterprise Server 11" /etc/SuSE-release
+    if test $? -eq 0; then
+        install_packages postgresql91-server python-psycopg2
+    else
+        install_packages postgresql-server python-psycopg2
+    fi
     /etc/init.d/postgresql restart
 else
     # start mysql
