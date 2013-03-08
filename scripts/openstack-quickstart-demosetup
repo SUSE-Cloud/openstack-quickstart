@@ -291,7 +291,7 @@ setcreds admin $pw" >> /etc/bash.bashrc.local
 
 . /etc/bash.bashrc.local
 for user in demo admin ; do
-    ketcreds $user $pw
+    setcreds $user $pw
     nova secgroup-add-rule default icmp -1 -1 0.0.0.0/0 # to allow ping
     #nova secgroup-add-rule default tcp 22 22 0.0.0.0/0 # to allow only SSH or do
     nova secgroup-add-rule default tcp 1 65535 0.0.0.0/0 # to allow all TCP
