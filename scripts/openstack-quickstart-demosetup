@@ -167,6 +167,10 @@ sed -i -e "s,#*[ ]*sql_connection=.*,sql_connection=$DB://cinder:${mpw}@${IP}/ci
 grep -q nova-rootwrap /etc/sudoers || echo "openstack-nova ALL=(ALL) NOPASSWD:/usr/bin/nova-rootwrap" >> /etc/sudoers
 grep -q cinder-rootwrap /etc/sudoers || echo "openstack-cinder ALL=(ALL) NOPASSWD:/usr/bin/cinder-rootwrap" >> /etc/sudoers
 
+# configure tgt for cinder
+grep -q "include /var/lib/cinder/volumes" /etc/tgt/targets.conf || echo "include /var/lib/cinder/volumes/*" >> /etc/tgt/targets.conf
+rctgtd restart
+
 perl -i -pe "s/%SERVICE_TOKEN%/$SERVICE_TOKEN/;" /etc/nova/api-paste.ini # obsolete 2012-03-19?
 for m in cinder nova glance ; do
 	sed -i -e 's/%SERVICE_TENANT_NAME%/service/' -e "s/%SERVICE_USER%/$m/" -e "s/%SERVICE_PASSWORD%/$SERVICE_TOKEN\nadmin_token = $SERVICE_TOKEN/" /etc/$m/*.ini /etc/$m/*.conf
