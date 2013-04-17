@@ -14,6 +14,9 @@ IP=127.0.0.1
 # this defines which addresses are assigned to VMs - should be part of your regular subnet, unless you arrange for routing
 testnet=10.10.134.16/29
 
+# floating ip address, should not be a part of your network
+floatingnet=172.31.0.0/29
+
 # this defines which database to use
 #DB=mysql
 DB=postgresql
