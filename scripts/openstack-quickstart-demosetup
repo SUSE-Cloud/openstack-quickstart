@@ -1,11 +1,14 @@
 #!/bin/bash -x
 
+# for development testing
+PREFIX=
+
 # go in a directory everybody can access
 # (postgresql commands usually have a 'could not change to "$PWD"' error
 # message if the postgres user cannot have access to $PWD...)
 cd /
 
-. /etc/openstackquickstartrc
+. $PREFIX/etc/openstackquickstartrc
 ADMIN_PASSWORD=$pw
 SERVICE_HOST=$IP
 
@@ -33,7 +36,103 @@ function run_as () {
     su - $1 -s /bin/bash -c "$2"
 }
 
+function get_router_id () {
+        eval `quantum router-show -f shell -c id main`
+        echo $id
+}
+
+function get_service_tenant_id () {
+	id=`OS_SERVICE_TOKEN=$SERVICE_TOKEN keystone tenant-get service | awk '/id/  { print $4 } '`
+	echo $id
+}
+
+function start_and_enable_service () {
+    i=/etc/init.d/$1
+    if [ -x $i ] ; then
+        insserv $1
+        $i restart
+    fi
+}
+
+function stop_and_disable_service () {
+    i=/etc/init.d/$1
+    if [ -x $i ] ; then
+        $i stop
+    fi
+    chkconfig -d $1
+}
+
+function get_ext_bridge_name () {
+    local id
+    eval `quantum net-show -f shell -c id ext`
+    echo "brq"${id:0:11}
+}
+
+
+function get_ext_bridge_ip () {
+    local gateway_ip
+    eval `quantum subnet-show -f shell -c gateway_ip ext`
+    echo $gateway_ip
+}
+
+function get_ext_bridge_ip_prefix () {
+    local cidr
+    eval `quantum subnet-show -f shell -c cidr ext`
+    echo $cidr | cut -f2 -d/
+}
+
+function get_ext_bridge_cidr () {
+    local cidr
+    eval `quantum subnet-show -f shell -c cidr ext`
+    echo $cidr
+}
+
+function setup_ext_bridge_on_boot () {
+    cat >/etc/sysconfig/network/ifcfg-$1 <<EOF
+BRIDGE='yes'
+BRIDGE_FORWARDDELAY='0'
+BRIDGE_STP='off'
+IPADDR='$2'
+STARTMODE='onboot'
+USERCONTROL='no'
+POST_UP_SCRIPT='openstack-quickstart-quantum-$1'
+EOF
+    cat >/etc/sysconfig/network/scripts/openstack-quickstart-quantum-$1<<EOF
+iptables -t nat -A POSTROUTING -s $3 -o br0 -j MASQUERADE
+EOF
+    chmod 755 /etc/sysconfig/network/scripts/openstack-quickstart-quantum-$1
+}
+
+# iproute2 on 12.3 is broken, bnc#816215
+function update_iproute2_on_opensuse_12_3 () {
+     grep -q 'openSUSE 12.3' /etc/SuSE-release
+     if [[ $? -eq 0 ]] ; then
+          OUT=`zypper lr -u | grep 'http://download.opensuse.org/update/12.3/'`
+          echo $OUT | grep -q 'http://download.opensuse.org/update/12.3/'
+          if [[ $? -ne 0 ]] ; then
+               echo "Adding update repository"
+               zypper ar http://download.opensuse.org/update/12.3/ update12.3
+               # TODO: add netfilter repo until update iproute2 will not appear in update repo
+               zypper ar http://download.opensuse.org/repositories/security:/netfilter/openSUSE_12.3/ netfilter12.3
+          fi
+          echo "Updating iproute2 package"
+          zypper --gpg-auto-import-keys ref
+          zypper --gpg-auto-import-keys install -f -y iproute2
+     fi
+}
+
+
+
+update_iproute2_on_opensuse_12_3
+
+grep -q bash.openstackrc /etc/bash.bashrc.local ||\
+echo "export HOST_IP=$IP
+. /etc/bash.openstackrc
+setcreds admin $pw" >> /etc/bash.bashrc.local
+
 install_packages patterns-OpenStack-controller patterns-OpenStack-compute-node patterns-OpenStack-clients patterns-OpenStack-network-node
+# this will be removed when openstack-utils will be attached to one of the patterns above
+install_packages openstack-utils
 
 if [ "$DB" = "postgresql" ] ; then
     grep -q "SUSE Linux Enterprise Server 11" /etc/SuSE-release
@@ -67,9 +166,24 @@ if rpm -q openstack-nova-compute >/dev/null ; then
     sed -i -e 's/\(MODULES_LOADED_ON_BOOT="\)/\1nbd\ /' /etc/sysconfig/kernel
 fi
 
+# disable firewall before playing with ip_forward stuff
+rm -f /usr/lib/python*/site-packages/nova-iptables.lock.lock # workaround bug
+rm -f /var/lock/SuSEfirewall2.booting # workaround openSUSE bug
+if test -e /sbin/SuSEfirewall2; then
+    SuSEfirewall2 stop        # interferes with openstack's network/firewall
+    stop_and_disable_service SuSEfirewall2_setup
+    stop_and_disable_service SuSEfirewall2_init
+fi
 # activate ip-forwarding
 [ -e /etc/sysconfig/sysctl ] && sed -i -e 's;IP_FORWARD="no";IP_FORWARD="yes";' /etc/sysconfig/sysctl
-sed -i -e 's;net.ipv4.ip_forward.*;net.ipv4.ip_forward = 1;' /etc/sysctl.conf
+grep -q 'net.ipv4.ip_forward' /etc/sysctl.conf
+if [[ $? -eq 0 ]] ; then
+     sed -i -e 's;net.ipv4.ip_forward.*;net.ipv4.ip_forward = 1;' /etc/sysctl.conf
+else
+     #sysctl file may not have ending new line
+     echo  >> /etc/sysctl.conf
+     echo "net.ipv4.ip_forward = 1" >> /etc/sysctl.conf
+fi
 echo 1 > /proc/sys/net/ipv4/ip_forward
 
 # configure bridge
@@ -79,6 +193,13 @@ if [ ! -e /etc/sysconfig/network/ifcfg-$br ] ; then
     ifdown eth0 # because systemd ignores the above
     sed -i -e "s/\(BOOTPROTO\).*/\1='static'/"     \
            -e "s|^\(IPADDR\).*|\1='0.0.0.0\\/32'|" /etc/sysconfig/network/ifcfg-eth0
+    cat >/etc/sysconfig/network/scripts/openstack-quickstart-quantum-br0<<EOF
+ip link add name vefr type veth peer name vefq
+ip link set vefr up
+ip link set vefq up
+brctl addif br0 vefr
+EOF
+chmod 755 /etc/sysconfig/network/scripts/openstack-quickstart-quantum-br0
     cat >/etc/sysconfig/network/ifcfg-$br <<EOF
 BOOTPROTO='dhcp4'
 BRIDGE='yes'
@@ -94,6 +215,7 @@ NETWORK=''
 REMOTE_IPADDR=''
 STARTMODE='onboot'
 USERCONTROL='no'
+POST_UP_SCRIPT='openstack-quickstart-quantum-br0'
 EOF
     /etc/init.d/network start
 fi
@@ -142,10 +264,17 @@ sed -i -e "s;127.0.0.1;$IP;" /etc/nova/api-paste.ini /etc/glance/glance-api.conf
 # configure nova
 perl -i.bak -pe "s,sql_connection=\w+://\w+:[^\@:]*,sql_connection=$DB://nova:$mpw,; s/<IP>/$IP/g;" /etc/nova/nova.conf
 
-openstack-config --set /etc/nova/nova.conf DEFAULT flat_network_bridge "$br"
-openstack-config --set /etc/nova/nova.conf DEFAULT bridge_interface "$br"
+#openstack-config --set /etc/nova/nova.conf DEFAULT flat_network_bridge "$br"
+#openstack-config --set /etc/nova/nova.conf DEFAULT bridge_interface "$br"
 openstack-config --set /etc/nova/nova.conf DEFAULT glance_api_servers "$IP:9292"
 openstack-config --set /etc/nova/nova.conf DEFAULT novncproxy_base_url "http://$IP:6080/vnc_auto.html"
+# TODO: quantum security group is broken for network shared beetwen
+# multiple tenants https://bugs.launchpad.net/quantum/+bug/1171997
+# we revert to nova one
+openstack-config --set /etc/nova/nova.conf DEFAULT security_group_api nova
+openstack-config --set /etc/quantum/plugins/linuxbridge/linuxbridge_conf.ini SECURITYGROUP firewall_driver quantum.agent.firewall.NoopFirewallDriver
+# TODO: this needs to be set as a default in openstack-nova package
+#openstack-config --set /etc/nova/nova.conf DEFAULT service_quantum_metadata_proxy true
 
 extensions_path=$(ls -d /usr/lib*/python*/site-packages/extensions 2> /dev/null | head -n 1)
 if [ -n "$extensions_path" ]; then
@@ -178,7 +307,7 @@ if [ "$DB" = "postgresql" ] ; then
         fi
     fi
     sudo -u postgres dropdb keystone || true # needed for keystone_data.sh
-    for DBNAME in nova cinder keystone glance horizon ; do
+    for DBNAME in nova cinder keystone glance horizon quantum ; do
         # use ALTER if CREATE fails: the role probably already exists
         # in that case
         sudo -u postgres psql -c "CREATE ROLE $DBNAME PASSWORD '$mpw' LOGIN;" || \
@@ -190,7 +319,7 @@ if [ "$DB" = "postgresql" ] ; then
     insserv postgresql
 else
     echo | mysql -u root || pwquery=-p
-    for DBNAME in nova cinder keystone glance horizon ; do
+    for DBNAME in nova cinder keystone glance horizon quantum ; do
         echo "
         set global character_set_server=latin1;
         set session character_set_server=latin1;
@@ -225,7 +354,8 @@ else
 fi
 
 #run_as $NOVA_SYSTEM_USER "nova-manage network create 10.10.134.32/27 1 32"
-run_as $NOVA_SYSTEM_USER "nova-manage network create --fixed_range_v4=$testnet --label=testnet"
+#migrated to quantum
+#run_as $NOVA_SYSTEM_USER "nova-manage network create --fixed_range_v4=$testnet --label=testnet"
 
 
 # setup glance
@@ -247,26 +377,26 @@ openstack-config --set /etc/keystone/keystone.conf DEFAULT admin_token "$SERVICE
 run_as $KEYSTONE_SYSTEM_USER "keystone-manage --config-file=/etc/keystone/keystone.conf db_sync"
 
 /etc/init.d/openstack-keystone restart
+if [ -z $PREFIX ] ; then
+	keystone_data=/usr/lib/devstack/keystone_data.sh
+else
+	keystone_data=$PREFIX/scripts/keystone_data.sh
+fi
 ENABLED_SERVICES=${ENABLED_SERVICES:-g-api,g-reg,key,n-api,n-cpu,n-net,n-vol,c-api,n-sch,n-novnc,n-xvnc,q-svc,heat,horizon,swift,mysql,rabbit}
 KEYSTONE_AUTH_HOST=${KEYSTONE_AUTH_HOST:-$SERVICE_HOST}
 KEYSTONE_AUTH_PORT=${KEYSTONE_AUTH_PORT:-35357}
 KEYSTONE_AUTH_PROTOCOL=${KEYSTONE_AUTH_PROTOCOL:-http}
 SERVICE_ENDPOINT=$KEYSTONE_AUTH_PROTOCOL://$KEYSTONE_AUTH_HOST:$KEYSTONE_AUTH_PORT/v2.0
-ADMIN_PASSWORD=$ADMIN_PASSWORD SERVICE_TENANT_NAME=service SERVICE_PASSWORD=$SERVICE_TOKEN SERVICE_TOKEN=$SERVICE_TOKEN SERVICE_ENDPOINT=$SERVICE_ENDPOINT DEVSTACK_DIR=/root ENABLED_SERVICES=$ENABLED_SERVICES bash /usr/lib/devstack/keystone_data.sh
+ADMIN_PASSWORD=$ADMIN_PASSWORD SERVICE_TENANT_NAME=service SERVICE_PASSWORD=$SERVICE_TOKEN SERVICE_TOKEN=$SERVICE_TOKEN SERVICE_ENDPOINT=$SERVICE_ENDPOINT DEVSTACK_DIR=/root ENABLED_SERVICES=$ENABLED_SERVICES bash $keystone_data
 
-rm -f /usr/lib/python*/site-packages/nova-iptables.lock.lock # workaround bug
-rm -f /var/lock/SuSEfirewall2.booting # workaround openSUSE bug
-if test -e /sbin/SuSEfirewall2; then
-    SuSEfirewall2 stop        # interferes with openstack's network/firewall
-    insserv -r SuSEfirewall2_setup
-    insserv -r SuSEfirewall2_init
-fi
 if which aa-complain >&/dev/null; then
     aa-complain /etc/apparmor.d/usr.sbin.libvirtd
 fi
 if [ -e /etc/init.d/boot.apparmor ]; then
-    /etc/init.d/boot.apparmor stop                # interferes with openstack-nova-network
-    insserv -r boot.apparmor
+    stop_and_disable_service boot.apparmor
+fi
+if [ -e /etc/init.d/dnsmasq ]; then
+    stop_and_disable_service dnsmasq
 fi
 
 # configure NTP, because we need synchronized time between nodes
@@ -274,41 +404,93 @@ grep -q ntp.org /etc/ntp.conf || echo server pool.ntp.org >> /etc/ntp.conf
 
 # change libvirt to run qemu as user qemu
 sed -i -e 's;.*user.*=.*;user = "qemu";' /etc/libvirt/qemu.conf
+chown root:kvm /dev/kvm
+chmod 660 /dev/kvm
+
+#-----------------------------------------
+## setup quantum configuration
+#-----------------------------------------
+
+openstack-config  --set /etc/quantum/plugins/linuxbridge/linuxbridge_conf.ini DATABASE sql_connection $DB://quantum:$mpw@$IP/quantum
+openstack-config  --set /etc/quantum/plugins/linuxbridge/linuxbridge_conf.ini LINUX_BRIDGE physical_interface_mappings root-bridge:vefq,physnet1:eth0
+openstack-config  --set /etc/quantum/plugins/linuxbridge/linuxbridge_conf.ini VLANS network_vlan_ranges root-bridge,physnet1
+# TODO: should be default openstack-quantum-l3-agent package
+openstack-config  --set /etc/quantum/l3_agent.ini DEFAULT external_network_bridge ""
+### turnof namespace to allow connecting to VMs from demo admin node (simple setup for demo purposes only)
+openstack-config  --set /etc/quantum/dhcp_agent.ini DEFAULT use_namespaces False
+### start quantum api
+start_and_enable_service rabbitmq-server
+start_and_enable_service openstack-quantum
+. /etc/bash.bashrc.local
+### wait until quantum will start
+cnt=0
+while : ; do
+	if [[ $cnt -gt 6 ]] ; then
+		echo "Can't reach quantum server. Exiting !!!" >&2
+		exit 1
+	fi
+        quantum net-list
+        if [[ $? -eq 0 ]] ; then
+                break
+        fi
+	cnt=$(($cnt+1))
+        sleep 2
+done
+### create subnets
+## fixed
+SERVICE_TENANT_ID=`get_service_tenant_id`
+quantum net-create fixed --shared --provider:network_type flat --provider:physical_network root-bridge
+quantum subnet-create --name fixed --dns-nameserver 8.8.8.8 --dns-nameserver 8.8.4.4 fixed $testnet
+quantum router-create main
+quantum router-interface-add main fixed
+## floating/external
+quantum net-create ext --tenant-id $SERVICE_TENANT_ID --provider:network_type local --router:external True
+quantum subnet-create --name ext --disable-dhcp --tenant-id $SERVICE_TENANT_ID ext $floatingnet
+quantum router-gateway-set main ext
+ create four floatingip pools
+for i in 1 2 3 4; do
+quantum floatingip-create ext
+done
+### create routing configuration for external bridge
+ext_bridge_name=`get_ext_bridge_name`
+ext_bridge_ip=`get_ext_bridge_ip`/`get_ext_bridge_ip_prefix`
+ext_bridge_cidr=`get_ext_bridge_cidr`
+setup_ext_bridge_on_boot $ext_bridge_name $ext_bridge_ip $ext_bridge_cidr
+ifup $ext_bridge_name
+#-----------------------------------------
+## end quantum setup configuration
+#---------------------------------------
 
 # start services
-for s in ntp libvirtd $DB rabbitmq-server iscsitarget open-iscsi iscsid tgtd memcached apache2 openstack-nova-api openstack-nova-conductor openstack-nova-scheduler openstack-nova-network openstack-nova-compute openstack-nova-vncproxy openstack-glance-api openstack-glance-registry openstack-keystone openstack-nova-console openstack-nova-consoleauth openstack-nova-novncproxy openstack-quantum
+for s in ntp libvirtd $DB iscsitarget open-iscsi tgtd memcached apache2 openstack-nova-api openstack-nova-conductor openstack-nova-scheduler openstack-nova-compute openstack-nova-vncproxy openstack-glance-api openstack-glance-registry openstack-keystone openstack-nova-consoleauth openstack-novncproxy openstack-quantum-linuxbridge-agent openstack-quantum-dhcp-agent openstack-quantum-l3-agent openstack-quantum-metadata-agent
 do
-    i=/etc/init.d/$s
-    if [ -x $i ] ; then
-        insserv $s
-        $i restart
-    fi
+    start_and_enable_service $s
 done
 
-/usr/sbin/openstack-loopback-lvm
+if [ -z $PREFIX ] ; then
+	openstack_loopback_lvm=/usr/sbin/openstack-loopback-lvm
+else
+	openstack_loopback_lvm=$PREFIX/scripts/openstack-loopback-lvm
+fi
 if [ "$?" -ne "0" ]; then
     # setup failed, so do not use
     for s in api scheduler volume ; do
         insserv -r openstack-cinder-$s
     done
 else
-    grep -q openstack-loopback-lvm /etc/init.d/boot.local || echo /usr/sbin/openstack-loopback-lvm >> /etc/init.d/boot.local
+    grep -q openstack-loopback-lvm /etc/init.d/boot.local || echo $openstack_loopback_lvm >> /etc/init.d/boot.local
     for s in api scheduler volume ; do
         /etc/init.d/openstack-cinder-$s restart
         insserv openstack-cinder-$s
     done
 fi
 
-grep -q bash.openstackrc /etc/bash.bashrc.local ||\
-echo "export HOST_IP=$IP
-. /etc/bash.openstackrc 
-setcreds admin $pw" >> /etc/bash.bashrc.local
-
 . /etc/bash.bashrc.local
+
 for user in demo admin ; do
     setcreds $user $pw
     nova secgroup-add-rule default icmp -1 -1 0.0.0.0/0 # to allow ping
-    #nova secgroup-add-rule default tcp 22 22 0.0.0.0/0 # to allow only SSH or do
+    nova secgroup-add-rule default tcp 22 22 0.0.0.0/0 # to allow only SSH or do
     nova secgroup-add-rule default tcp 1 65535 0.0.0.0/0 # to allow all TCP
     nova secgroup-add-rule default udp 1 65535 0.0.0.0/0 # and all UDP
     nova secgroup-list-rules default # lists the rules

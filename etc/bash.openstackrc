@@ -42,4 +42,3 @@ export EC2_URL=http://127.0.0.1:8773/services/Cloud
 export SERVICE_ENDPOINT=http://127.0.0.1:35357/v2.0
 # don't put secrets in world readable files - this line is just for reference
 #export SERVICE_TOKEN=999888777666
-
