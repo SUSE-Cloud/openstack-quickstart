@@ -37,7 +37,7 @@ function run_as () {
 }
 
 function get_router_id () {
-        eval `quantum router-show -f shell -c id main`
+        eval `quantum router-show -f shell -F id main`
         echo $id
 }
 
@@ -64,26 +64,26 @@ function stop_and_disable_service () {
 
 function get_ext_bridge_name () {
     local id
-    eval `quantum net-show -f shell -c id ext`
+    eval `quantum net-show -f shell -F id ext`
     echo "brq"${id:0:11}
 }
 
 
 function get_ext_bridge_ip () {
     local gateway_ip
-    eval `quantum subnet-show -f shell -c gateway_ip ext`
+    eval `quantum subnet-show -f shell -F gateway_ip ext`
     echo $gateway_ip
 }
 
 function get_ext_bridge_ip_prefix () {
     local cidr
-    eval `quantum subnet-show -f shell -c cidr ext`
+    eval `quantum subnet-show -f shell -F cidr ext`
     echo $cidr | cut -f2 -d/
 }
 
 function get_ext_bridge_cidr () {
     local cidr
-    eval `quantum subnet-show -f shell -c cidr ext`
+    eval `quantum subnet-show -f shell -F cidr ext`
     echo $cidr
 }
 
