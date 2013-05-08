@@ -98,7 +98,7 @@ USERCONTROL='no'
 POST_UP_SCRIPT='openstack-quickstart-quantum-$1'
 EOF
     cat >/etc/sysconfig/network/scripts/openstack-quickstart-quantum-$1<<EOF
-iptables -t nat -A POSTROUTING -s $3 -o br0 -j MASQUERADE
+iptables -t nat -A POSTROUTING -s $3 -o $br -j MASQUERADE
 EOF
     chmod 755 /etc/sysconfig/network/scripts/openstack-quickstart-quantum-$1
 }
@@ -193,13 +193,13 @@ if [ ! -e /etc/sysconfig/network/ifcfg-$br ] ; then
     ifdown eth0 # because systemd ignores the above
     sed -i -e "s/\(BOOTPROTO\).*/\1='static'/"     \
            -e "s|^\(IPADDR\).*|\1='0.0.0.0\\/32'|" /etc/sysconfig/network/ifcfg-eth0
-    cat >/etc/sysconfig/network/scripts/openstack-quickstart-quantum-br0<<EOF
+    cat >/etc/sysconfig/network/scripts/openstack-quickstart-quantum-$br<<EOF
 ip link add name vefr type veth peer name vefq
 ip link set vefr up
 ip link set vefq up
-brctl addif br0 vefr
+brctl addif $br vefr
 EOF
-chmod 755 /etc/sysconfig/network/scripts/openstack-quickstart-quantum-br0
+chmod 755 /etc/sysconfig/network/scripts/openstack-quickstart-quantum-$br
     cat >/etc/sysconfig/network/ifcfg-$br <<EOF
 BOOTPROTO='dhcp4'
 BRIDGE='yes'
@@ -215,7 +215,7 @@ NETWORK=''
 REMOTE_IPADDR=''
 STARTMODE='onboot'
 USERCONTROL='no'
-POST_UP_SCRIPT='openstack-quickstart-quantum-br0'
+POST_UP_SCRIPT='openstack-quickstart-quantum-$br'
 EOF
     /etc/init.d/network start
 fi
