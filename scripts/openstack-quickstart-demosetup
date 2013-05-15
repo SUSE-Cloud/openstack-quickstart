@@ -481,6 +481,7 @@ if [ -z $PREFIX ] ; then
 else
 	openstack_loopback_lvm=$PREFIX/scripts/openstack-loopback-lvm
 fi
+$openstack_loopback_lvm
 if [ "$?" -ne "0" ]; then
     # setup failed, so do not use
     for s in api scheduler volume ; do

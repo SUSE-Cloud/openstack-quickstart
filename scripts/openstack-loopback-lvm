@@ -1,6 +1,6 @@
 #!/bin/sh
 
-f=/var/lib/cinder/volumes
+f=/var/lib/cinder/volumes-pv
 loop=/dev/loop0
 modprobe loop
 
