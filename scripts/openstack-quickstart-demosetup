@@ -37,7 +37,7 @@ function run_as () {
 }
 
 function get_router_id () {
-        eval `quantum router-show -f shell -c id main`
+        eval `quantum router-show -f shell -F id main`
         echo $id
 }
 
@@ -64,26 +64,26 @@ function stop_and_disable_service () {
 
 function get_ext_bridge_name () {
     local id
-    eval `quantum net-show -f shell -c id ext`
+    eval `quantum net-show -f shell -F id ext`
     echo "brq"${id:0:11}
 }
 
 
 function get_ext_bridge_ip () {
     local gateway_ip
-    eval `quantum subnet-show -f shell -c gateway_ip ext`
+    eval `quantum subnet-show -f shell -F gateway_ip ext`
     echo $gateway_ip
 }
 
 function get_ext_bridge_ip_prefix () {
     local cidr
-    eval `quantum subnet-show -f shell -c cidr ext`
+    eval `quantum subnet-show -f shell -F cidr ext`
     echo $cidr | cut -f2 -d/
 }
 
 function get_ext_bridge_cidr () {
     local cidr
-    eval `quantum subnet-show -f shell -c cidr ext`
+    eval `quantum subnet-show -f shell -F cidr ext`
     echo $cidr
 }
 
@@ -118,6 +118,13 @@ function update_iproute2_on_opensuse_12_3 () {
           echo "Updating iproute2 package"
           zypper --gpg-auto-import-keys ref
           zypper --gpg-auto-import-keys install -f -y iproute2
+     fi
+}
+
+function dhcp_agent_platform_specific () {
+     grep -q 'SUSE Linux Enterprise Server 11' /etc/SuSE-release
+     if [[ $? -eq 0 ]] ; then
+          openstack-config  --set /etc/quantum/dhcp_agent.ini DEFAULT dhcp_driver quantum.agent.linux.dhcp.DnsmasqSles
      fi
 }
 
@@ -418,6 +425,8 @@ openstack-config  --set /etc/quantum/plugins/linuxbridge/linuxbridge_conf.ini VL
 openstack-config  --set /etc/quantum/l3_agent.ini DEFAULT external_network_bridge ""
 ### turnof namespace to allow connecting to VMs from demo admin node (simple setup for demo purposes only)
 openstack-config  --set /etc/quantum/dhcp_agent.ini DEFAULT use_namespaces False
+### dhcp_agent platform specific settings
+dhcp_agent_platform_specific
 ### start quantum api
 start_and_enable_service rabbitmq-server
 start_and_enable_service openstack-quantum
@@ -472,6 +481,7 @@ if [ -z $PREFIX ] ; then
 else
 	openstack_loopback_lvm=$PREFIX/scripts/openstack-loopback-lvm
 fi
+$openstack_loopback_lvm
 if [ "$?" -ne "0" ]; then
     # setup failed, so do not use
     for s in api scheduler volume ; do
