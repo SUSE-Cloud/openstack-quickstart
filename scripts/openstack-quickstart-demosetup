@@ -121,13 +121,6 @@ function update_iproute2_on_opensuse_12_3 () {
      fi
 }
 
-function dhcp_agent_platform_specific () {
-     grep -q 'SUSE Linux Enterprise Server 11' /etc/SuSE-release
-     if [[ $? -eq 0 ]] ; then
-          openstack-config  --set /etc/quantum/dhcp_agent.ini DEFAULT dhcp_driver quantum.agent.linux.dhcp.DnsmasqSles
-     fi
-}
-
 
 
 update_iproute2_on_opensuse_12_3
@@ -425,8 +418,6 @@ openstack-config  --set /etc/quantum/plugins/linuxbridge/linuxbridge_conf.ini VL
 openstack-config  --set /etc/quantum/l3_agent.ini DEFAULT external_network_bridge ""
 ### turnof namespace to allow connecting to VMs from demo admin node (simple setup for demo purposes only)
 openstack-config  --set /etc/quantum/dhcp_agent.ini DEFAULT use_namespaces False
-### dhcp_agent platform specific settings
-dhcp_agent_platform_specific
 ### start quantum api
 start_and_enable_service rabbitmq-server
 start_and_enable_service openstack-quantum
