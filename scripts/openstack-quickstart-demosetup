@@ -97,7 +97,7 @@ STARTMODE='onboot'
 USERCONTROL='no'
 POST_UP_SCRIPT='openstack-quickstart-quantum-$1'
 EOF
-    cat >/etc/sysconfig/network/scripts/openstack-quickstart-quantum-$1<<EOF
+    cat >>/etc/sysconfig/network/scripts/openstack-quickstart-quantum-$1<<EOF
 iptables -t nat -A POSTROUTING -s $3 -o $br -j MASQUERADE
 EOF
     chmod 755 /etc/sysconfig/network/scripts/openstack-quickstart-quantum-$1
@@ -447,9 +447,9 @@ quantum router-interface-add main fixed
 quantum net-create ext --tenant-id $SERVICE_TENANT_ID --provider:network_type local --router:external True
 quantum subnet-create --name ext --disable-dhcp --tenant-id $SERVICE_TENANT_ID ext $floatingnet
 quantum router-gateway-set main ext
- create four floatingip pools
+# create four floatingip pools
 for i in 1 2 3 4; do
-quantum floatingip-create ext
+    quantum floatingip-create ext
 done
 ### create routing configuration for external bridge
 ext_bridge_name=`get_ext_bridge_name`
