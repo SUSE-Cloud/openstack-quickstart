@@ -130,7 +130,7 @@ echo "export HOST_IP=$IP
 . /etc/bash.openstackrc
 setcreds admin $pw" >> /etc/bash.bashrc.local
 
-install_packages patterns-OpenStack-controller patterns-OpenStack-compute-node patterns-OpenStack-clients patterns-OpenStack-network-node
+(install_packages patterns-OpenStack-controller patterns-OpenStack-compute-node patterns-OpenStack-clients patterns-OpenStack-network-node) || echo "WARNING: did not install patterns"
 # this will be removed when openstack-utils will be attached to one of the patterns above
 install_packages openstack-utils
 
