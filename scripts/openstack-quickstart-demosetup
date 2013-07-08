@@ -302,7 +302,7 @@ if [ "$DB" = "postgresql" ] ; then
         echo "listen_addresses = '*'" >> $DATADIR/postgresql.conf
         echo "host all all 0.0.0.0/0 md5  sameuser" >> $DATADIR/pg_hba.conf
         echo "host all all      ::/0 md5  sameuser" >> $DATADIR/pg_hba.conf
-        if ! rpm -q postgresql | grep -q postgresql-8 ; then
+        if rpm -q postgresql91 || ! rpm -q postgresql | grep -q postgresql-8 ; then
             sed -i 's/\s*sameuser$//' $DATADIR/pg_hba.conf # adapt config syntax to postgresql-9
         fi
     fi
