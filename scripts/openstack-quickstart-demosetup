@@ -18,8 +18,8 @@ GLANCE_SYSTEM_USER=openstack-glance
 GLANCE_SYSTEM_GROUP=openstack-glance
 CINDER_SYSTEM_USER=openstack-cinder
 CINDER_SYSTEM_GROUP=openstack-cinder
-QUANTUM_SYSTEM_USER=openstack-quantum
-QUANTUM_SYSTEM_GROUP=openstack-quantum
+NEUTRON_SYTEM_USER=openstack-neutron
+NEUTRON_SYTEM_GROUP=openstack-neutron
 NOVA_SYSTEM_USER=openstack-nova
 NOVA_SYSTEM_GROUP=openstack-nova
 HORIZON_SYSTEM_USER=openstack-horizon
@@ -37,7 +37,7 @@ function run_as () {
 }
 
 function get_router_id () {
-        eval `quantum router-show -f shell -F id main`
+        eval `neutron router-show -f shell -F id main`
         echo $id
 }
 
@@ -64,26 +64,26 @@ function stop_and_disable_service () {
 
 function get_ext_bridge_name () {
     local id
-    eval `quantum net-show -f shell -F id ext`
+    eval `neutron net-show -f shell -F id ext`
     echo "brq"${id:0:11}
 }
 
 
 function get_ext_bridge_ip () {
     local gateway_ip
-    eval `quantum subnet-show -f shell -F gateway_ip ext`
+    eval `neutron subnet-show -f shell -F gateway_ip ext`
     echo $gateway_ip
 }
 
 function get_ext_bridge_ip_prefix () {
     local cidr
-    eval `quantum subnet-show -f shell -F cidr ext`
+    eval `neutron subnet-show -f shell -F cidr ext`
     echo $cidr | cut -f2 -d/
 }
 
 function get_ext_bridge_cidr () {
     local cidr
-    eval `quantum subnet-show -f shell -F cidr ext`
+    eval `neutron subnet-show -f shell -F cidr ext`
     echo $cidr
 }
 
@@ -95,12 +95,12 @@ BRIDGE_STP='off'
 IPADDR='$2'
 STARTMODE='onboot'
 USERCONTROL='no'
-POST_UP_SCRIPT='openstack-quickstart-quantum-$1'
+POST_UP_SCRIPT='openstack-quickstart-neutron-$1'
 EOF
-    cat >/etc/sysconfig/network/scripts/openstack-quickstart-quantum-$1<<EOF
+    cat >/etc/sysconfig/network/scripts/openstack-quickstart-neutron-$1<<EOF
 iptables -t nat -A POSTROUTING -s $3 -o $br -j MASQUERADE
 EOF
-    chmod 755 /etc/sysconfig/network/scripts/openstack-quickstart-quantum-$1
+    chmod 755 /etc/sysconfig/network/scripts/openstack-quickstart-neutron-$1
 }
 
 # iproute2 on 12.3 is broken, bnc#816215
@@ -193,13 +193,13 @@ if [ ! -e /etc/sysconfig/network/ifcfg-$br ] ; then
     ifdown eth0 # because systemd ignores the above
     sed -i -e "s/\(BOOTPROTO\).*/\1='static'/"     \
            -e "s|^\(IPADDR\).*|\1='0.0.0.0\\/32'|" /etc/sysconfig/network/ifcfg-eth0
-    cat >/etc/sysconfig/network/scripts/openstack-quickstart-quantum-$br<<EOF
+    cat >/etc/sysconfig/network/scripts/openstack-quickstart-neutron-$br<<EOF
 ip link add name vefr type veth peer name vefq
 ip link set vefr up
 ip link set vefq up
 brctl addif $br vefr
 EOF
-chmod 755 /etc/sysconfig/network/scripts/openstack-quickstart-quantum-$br
+chmod 755 /etc/sysconfig/network/scripts/openstack-quickstart-neutron-$br
     cat >/etc/sysconfig/network/ifcfg-$br <<EOF
 BOOTPROTO='dhcp4'
 BRIDGE='yes'
@@ -215,7 +215,7 @@ NETWORK=''
 REMOTE_IPADDR=''
 STARTMODE='onboot'
 USERCONTROL='no'
-POST_UP_SCRIPT='openstack-quickstart-quantum-$br'
+POST_UP_SCRIPT='openstack-quickstart-neutron-$br'
 EOF
     /etc/init.d/network start
 fi
@@ -268,13 +268,13 @@ perl -i.bak -pe "s,sql_connection=\w+://\w+:[^\@:]*,sql_connection=$DB://nova:$m
 #openstack-config --set /etc/nova/nova.conf DEFAULT bridge_interface "$br"
 openstack-config --set /etc/nova/nova.conf DEFAULT glance_api_servers "$IP:9292"
 openstack-config --set /etc/nova/nova.conf DEFAULT novncproxy_base_url "http://$IP:6080/vnc_auto.html"
-# TODO: quantum security group is broken for network shared beetwen
-# multiple tenants https://bugs.launchpad.net/quantum/+bug/1171997
+# TODO: neutron security group is broken for network shared beetwen
+# multiple tenants https://bugs.launchpad.net/neutron/+bug/1171997
 # we revert to nova one
 openstack-config --set /etc/nova/nova.conf DEFAULT security_group_api nova
-openstack-config --set /etc/quantum/plugins/linuxbridge/linuxbridge_conf.ini SECURITYGROUP firewall_driver quantum.agent.firewall.NoopFirewallDriver
+openstack-config --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini SECURITYGROUP firewall_driver neutron.agent.firewall.NoopFirewallDriver
 # TODO: this needs to be set as a default in openstack-nova package
-#openstack-config --set /etc/nova/nova.conf DEFAULT service_quantum_metadata_proxy true
+#openstack-config --set /etc/nova/nova.conf DEFAULT service_neutron true
 
 extensions_path=$(ls -d /usr/lib*/python*/site-packages/extensions 2> /dev/null | head -n 1)
 if [ -n "$extensions_path" ]; then
@@ -289,7 +289,7 @@ grep -q "include /var/lib/cinder/volumes" /etc/tgt/targets.conf || echo "include
 rctgtd restart
 
 perl -i -pe "s/%SERVICE_TOKEN%/$SERVICE_TOKEN/;" /etc/nova/api-paste.ini # obsolete 2012-03-19?
-for m in cinder nova glance quantum ; do
+for m in cinder nova glance neutron ; do
     sed -i -e 's/%SERVICE_TENANT_NAME%/service/' -e "s/%SERVICE_USER%/$m/" -e "s/%SERVICE_PASSWORD%/$SERVICE_TOKEN\nadmin_token = $SERVICE_TOKEN/" /etc/$m/*.ini /etc/$m/*.conf
 done
 
@@ -307,7 +307,7 @@ if [ "$DB" = "postgresql" ] ; then
         fi
     fi
     sudo -u postgres dropdb keystone || true # needed for keystone_data.sh
-    for DBNAME in nova cinder keystone glance horizon quantum ; do
+    for DBNAME in nova cinder keystone glance horizon neutron ; do
         # use ALTER if CREATE fails: the role probably already exists
         # in that case
         sudo -u postgres psql -c "CREATE ROLE $DBNAME PASSWORD '$mpw' LOGIN;" || \
@@ -319,7 +319,7 @@ if [ "$DB" = "postgresql" ] ; then
     insserv postgresql
 else
     echo | mysql -u root || pwquery=-p
-    for DBNAME in nova cinder keystone glance horizon quantum ; do
+    for DBNAME in nova cinder keystone glance horizon neutron ; do
         echo "
         set global character_set_server=latin1;
         set session character_set_server=latin1;
@@ -354,7 +354,7 @@ else
 fi
 
 #run_as $NOVA_SYSTEM_USER "nova-manage network create 10.10.134.32/27 1 32"
-#migrated to quantum
+#migrated to neutron
 #run_as $NOVA_SYSTEM_USER "nova-manage network create --fixed_range_v4=$testnet --label=testnet"
 
 
@@ -408,28 +408,28 @@ chown root:kvm /dev/kvm
 chmod 660 /dev/kvm
 
 #-----------------------------------------
-## setup quantum configuration
+## setup neutron configuration
 #-----------------------------------------
 
-openstack-config  --set /etc/quantum/plugins/linuxbridge/linuxbridge_conf.ini DATABASE sql_connection $DB://quantum:$mpw@$IP/quantum
-openstack-config  --set /etc/quantum/plugins/linuxbridge/linuxbridge_conf.ini LINUX_BRIDGE physical_interface_mappings root-bridge:vefq,physnet1:eth0
-openstack-config  --set /etc/quantum/plugins/linuxbridge/linuxbridge_conf.ini VLANS network_vlan_ranges root-bridge,physnet1
-# TODO: should be default openstack-quantum-l3-agent package
-openstack-config  --set /etc/quantum/l3_agent.ini DEFAULT external_network_bridge ""
+openstack-config  --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini DATABASE sql_connection $DB://neutron:$mpw@$IP/neutron
+openstack-config  --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini LINUX_BRIDGE physical_interface_mappings root-bridge:vefq,physnet1:eth0
+openstack-config  --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini VLANS network_vlan_ranges root-bridge,physnet1
+# TODO: should be default openstack-neutron-l3-agent package
+openstack-config  --set /etc/neutron/l3_agent.ini DEFAULT external_network_bridge ""
 ### turnof namespace to allow connecting to VMs from demo admin node (simple setup for demo purposes only)
-openstack-config  --set /etc/quantum/dhcp_agent.ini DEFAULT use_namespaces False
-### start quantum api
+openstack-config  --set /etc/neutron/dhcp_agent.ini DEFAULT use_namespaces False
+### start neutron api
 start_and_enable_service rabbitmq-server
-start_and_enable_service openstack-quantum
+start_and_enable_service openstack-neutron
 . /etc/bash.bashrc.local
-### wait until quantum will start
+### wait until neutron will start
 cnt=0
 while : ; do
 	if [[ $cnt -gt 6 ]] ; then
-		echo "Can't reach quantum server. Exiting !!!" >&2
+		echo "Can't reach neutron server. Exiting !!!" >&2
 		exit 1
 	fi
-        quantum net-list
+        neutron net-list
         if [[ $? -eq 0 ]] ; then
                 break
         fi
@@ -439,17 +439,17 @@ done
 ### create subnets
 ## fixed
 SERVICE_TENANT_ID=`get_service_tenant_id`
-quantum net-create fixed --shared --provider:network_type flat --provider:physical_network root-bridge
-quantum subnet-create --name fixed --dns-nameserver 8.8.8.8 --dns-nameserver 8.8.4.4 fixed $testnet
-quantum router-create main
-quantum router-interface-add main fixed
+neutron net-create fixed --shared --provider:network_type flat --provider:physical_network root-bridge
+neutron subnet-create --name fixed --dns-nameserver 8.8.8.8 --dns-nameserver 8.8.4.4 fixed $testnet
+neutron router-create main
+neutron router-interface-add main fixed
 ## floating/external
-quantum net-create ext --tenant-id $SERVICE_TENANT_ID --provider:network_type local --router:external True
-quantum subnet-create --name ext --disable-dhcp --tenant-id $SERVICE_TENANT_ID ext $floatingnet
-quantum router-gateway-set main ext
+neutron net-create ext --tenant-id $SERVICE_TENANT_ID --provider:network_type local --router:external True
+neutron subnet-create --name ext --disable-dhcp --tenant-id $SERVICE_TENANT_ID ext $floatingnet
+neutron router-gateway-set main ext
  create four floatingip pools
 for i in 1 2 3 4; do
-quantum floatingip-create ext
+neutron floatingip-create ext
 done
 ### create routing configuration for external bridge
 ext_bridge_name=`get_ext_bridge_name`
@@ -458,11 +458,11 @@ ext_bridge_cidr=`get_ext_bridge_cidr`
 setup_ext_bridge_on_boot $ext_bridge_name $ext_bridge_ip $ext_bridge_cidr
 ifup $ext_bridge_name
 #-----------------------------------------
-## end quantum setup configuration
+## end neutron setup configuration
 #---------------------------------------
 
 # start services
-for s in ntp libvirtd $DB iscsitarget open-iscsi tgtd memcached apache2 openstack-nova-api openstack-nova-conductor openstack-nova-scheduler openstack-nova-compute openstack-nova-vncproxy openstack-glance-api openstack-glance-registry openstack-keystone openstack-nova-consoleauth openstack-novncproxy openstack-quantum-linuxbridge-agent openstack-quantum-dhcp-agent openstack-quantum-l3-agent openstack-quantum-metadata-agent
+for s in ntp libvirtd $DB iscsitarget open-iscsi tgtd memcached apache2 openstack-nova-api openstack-nova-conductor openstack-nova-scheduler openstack-nova-compute openstack-nova-vncproxy openstack-glance-api openstack-glance-registry openstack-keystone openstack-nova-consoleauth openstack-novncproxy openstack-neutron-linuxbridge-agent openstack-neutron-dhcp-agent openstack-neutron-l3-agent openstack-neutron-metadata-agent
 do
     start_and_enable_service $s
 done
