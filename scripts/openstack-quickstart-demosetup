@@ -129,9 +129,7 @@ echo "export HOST_IP=$IP
 . /etc/bash.openstackrc
 setcreds admin $pw" >> /etc/bash.bashrc.local
 
-install_packages patterns-OpenStack-controller patterns-OpenStack-compute-node patterns-OpenStack-clients patterns-OpenStack-network-node
-# this will be removed when openstack-utils will be attached to one of the patterns above
-install_packages openstack-utils
+install_packages patterns-OpenStack-controller patterns-OpenStack-compute-node patterns-OpenStack-clients patterns-OpenStack-network-node openstack-utils
 
 if [ "$DB" = "postgresql" ] ; then
     if grep -q "SUSE Linux Enterprise Server 11" /etc/SuSE-release; then
@@ -288,9 +286,11 @@ if [ -f /etc/tgt/targets.conf ]; then
     }
 fi
 
-perl -i -pe "s/%SERVICE_TOKEN%/$SERVICE_TOKEN/;" /etc/nova/api-paste.ini # obsolete 2012-03-19?
 for m in cinder nova glance neutron ; do
-    sed -i -e 's/%SERVICE_TENANT_NAME%/service/' -e "s/%SERVICE_USER%/$m/" -e "s/%SERVICE_PASSWORD%/$SERVICE_TOKEN\nadmin_token = $SERVICE_TOKEN/" /etc/$m/*.ini /etc/$m/*.conf
+    sed -i -e 's/%SERVICE_TENANT_NAME%/service/' \
+           -e "s/%SERVICE_USER%/$m/" \
+           -e "s/%SERVICE_PASSWORD%/$ADMIN_PASSWORD/" \
+               /etc/$m/*.ini /etc/$m/$m*.conf
 done
 
 if [ "$DB" = "postgresql" ] ; then
@@ -387,7 +387,9 @@ KEYSTONE_AUTH_HOST=${KEYSTONE_AUTH_HOST:-$SERVICE_HOST}
 KEYSTONE_AUTH_PORT=${KEYSTONE_AUTH_PORT:-35357}
 KEYSTONE_AUTH_PROTOCOL=${KEYSTONE_AUTH_PROTOCOL:-http}
 SERVICE_ENDPOINT=$KEYSTONE_AUTH_PROTOCOL://$KEYSTONE_AUTH_HOST:$KEYSTONE_AUTH_PORT/v2.0
-ADMIN_PASSWORD=$ADMIN_PASSWORD SERVICE_TENANT_NAME=service SERVICE_PASSWORD=$SERVICE_TOKEN SERVICE_TOKEN=$SERVICE_TOKEN SERVICE_ENDPOINT=$SERVICE_ENDPOINT DEVSTACK_DIR=/root ENABLED_SERVICES=$ENABLED_SERVICES bash $keystone_data
+ADMIN_PASSWORD=$ADMIN_PASSWORD SERVICE_TOKEN=$SERVICE_TOKEN SERVICE_ENDPOINT=$SERVICE_ENDPOINT DEVSTACK_DIR=/root ENABLED_SERVICES=$ENABLED_SERVICES bash $keystone_data
+
+. /etc/bash.bashrc.local
 
 if which aa-complain >&/dev/null; then
     aa-complain /etc/apparmor.d/usr.sbin.libvirtd
@@ -421,7 +423,6 @@ openstack-config  --set /etc/neutron/dhcp_agent.ini DEFAULT use_namespaces False
 ### start neutron api
 start_and_enable_service rabbitmq-server
 start_and_enable_service openstack-neutron
-. /etc/bash.bashrc.local
 ### wait until neutron will start
 cnt=0
 while : ; do
@@ -485,8 +486,6 @@ else
         insserv openstack-cinder-$s
     done
 fi
-
-. /etc/bash.bashrc.local
 
 for user in demo admin ; do
     setcreds $user $pw

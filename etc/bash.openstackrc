@@ -4,10 +4,10 @@
 # input: optional password
 # sets required variables for OpenStack services, reads from stdin if not given
 function setcreds() {
-	export OS_AUTH_USER=$1
-	if [ -z "$OS_AUTH_USER" ] ; then
+	export OS_USERNAME=$1
+	if [ -z "$OS_USERNAME" ] ; then
 		echo -n "username: "
-		read OS_AUTH_USER
+		read OS_USERNAME
 	fi
 	export OS_PASSWORD=$2
 	if [ -z "$OS_PASSWORD" ] ; then
@@ -16,10 +16,7 @@ function setcreds() {
 	fi
 	export EC2_ACCESS_KEY=$1
 	export EC2_SECRET_KEY=$2
-	export OS_USERNAME=$1
-	export OS_TENANT_NAME=$1
-	export OS_AUTH_KEY=$2
-	export OS_AUTH_TENANT=$1
+	export OS_TENANT_NAME=admin
 	export OS_AUTH_URL=http://127.0.0.1:5000/v2.0/
 	export OS_AUTH_STRATEGY=keystone
 }
@@ -28,8 +25,3 @@ function setcreds() {
 
 # for euca2ools
 export EC2_URL=http://127.0.0.1:8773/services/Cloud
-
-# for keystone administration
-export SERVICE_ENDPOINT=http://127.0.0.1:35357/v2.0
-# don't put secrets in world readable files - this line is just for reference
-#export SERVICE_TOKEN=999888777666
