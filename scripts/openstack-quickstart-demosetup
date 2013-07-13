@@ -260,12 +260,10 @@ EOSEC
 
 # replace default IP in all configuration files
 sed -i -e "s;127.0.0.1;$IP;" /etc/nova/api-paste.ini /etc/glance/glance-api.conf /etc/glance/glance-registry.conf
-
-# configure nova
-perl -i.bak -pe "s,sql_connection=\w+://\w+:[^\@:]*,sql_connection=$DB://nova:$mpw,; s/<IP>/$IP/g;" /etc/nova/nova.conf
-
+sed -i -e "s,<IP>,$IP,g" /etc/nova/nova.conf
 #openstack-config --set /etc/nova/nova.conf DEFAULT flat_network_bridge "$br"
 #openstack-config --set /etc/nova/nova.conf DEFAULT bridge_interface "$br"
+openstack-config --set /etc/nova/nova.conf DEFAULT sql_connection "$DB://nova:$mpw@$IP/nova"
 openstack-config --set /etc/nova/nova.conf DEFAULT glance_api_servers "$IP:9292"
 openstack-config --set /etc/nova/nova.conf DEFAULT novncproxy_base_url "http://$IP:6080/vnc_auto.html"
 # TODO: neutron security group is broken for network shared beetwen
