@@ -105,8 +105,7 @@ EOF
 
 # iproute2 on 12.3 is broken, bnc#816215
 function update_iproute2_on_opensuse_12_3 () {
-     grep -q 'openSUSE 12.3' /etc/SuSE-release
-     if [[ $? -eq 0 ]] ; then
+     if grep -q 'openSUSE 12.3' /etc/SuSE-release; then
           OUT=`zypper lr -u | grep 'http://download.opensuse.org/update/12.3/'`
           echo $OUT | grep -q 'http://download.opensuse.org/update/12.3/'
           if [[ $? -ne 0 ]] ; then
@@ -135,8 +134,7 @@ install_packages patterns-OpenStack-controller patterns-OpenStack-compute-node p
 install_packages openstack-utils
 
 if [ "$DB" = "postgresql" ] ; then
-    grep -q "SUSE Linux Enterprise Server 11" /etc/SuSE-release
-    if test $? -eq 0; then
+    if grep -q "SUSE Linux Enterprise Server 11" /etc/SuSE-release; then
         install_packages postgresql91-server python-psycopg2
     else
         install_packages postgresql-server python-psycopg2
@@ -283,8 +281,12 @@ fi
 openstack-config --set /etc/cinder/cinder.conf DEFAULT sql_connection "$DB://cinder:${mpw}@${IP}/cinder"
 
 # configure tgt for cinder
-grep -q "include /var/lib/cinder/volumes" /etc/tgt/targets.conf || echo "include /var/lib/cinder/volumes/*" >> /etc/tgt/targets.conf
-rctgtd restart
+if [ -f /etc/tgt/targets.conf ]; then
+    grep -q "include /var/lib/cinder/volumes" /etc/tgt/targets.conf || {
+        echo "include /var/lib/cinder/volumes/*" >> /etc/tgt/targets.conf
+        rctgtd restart
+    }
+fi
 
 perl -i -pe "s/%SERVICE_TOKEN%/$SERVICE_TOKEN/;" /etc/nova/api-paste.ini # obsolete 2012-03-19?
 for m in cinder nova glance neutron ; do
@@ -312,7 +314,7 @@ if [ "$DB" = "postgresql" ] ; then
         sudo -u postgres psql -c "ALTER ROLE $DBNAME PASSWORD '$mpw' LOGIN;"
         sudo -u postgres createdb -O $DBNAME $DBNAME || true
     done
-    sudo -u postgres createuser -s root
+    sudo -u postgres createuser -s root || :
     /etc/init.d/postgresql restart
     insserv postgresql
 else
