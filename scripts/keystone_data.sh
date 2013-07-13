@@ -7,7 +7,7 @@
 # admin                admin     admin
 # service              glance    admin
 # service              nova      admin, [ResellerAdmin (swift only)]
-# service              quantum   admin        # if enabled
+# service              neutron   admin        # if enabled
 # service              swift     admin        # if enabled
 # service              cinder    admin        # if enabled
 # service              heat      admin        # if enabled
@@ -64,8 +64,6 @@ DEMO_USER=$(get_id keystone user-create --name=demo \
 # -----
 
 ADMIN_ROLE=$(get_id keystone role-create --name=admin)
-KEYSTONEADMIN_ROLE=$(get_id keystone role-create --name=KeystoneAdmin)
-KEYSTONESERVICE_ROLE=$(get_id keystone role-create --name=KeystoneServiceAdmin)
 # ANOTHER_ROLE demonstrates that an arbitrary role may be created and used
 # TODO(sleepsonthefloor): show how this can be used for rbac in the future!
 ANOTHER_ROLE=$(get_id keystone role-create --name=anotherrole)
@@ -75,11 +73,6 @@ ANOTHER_ROLE=$(get_id keystone role-create --name=anotherrole)
 keystone user-role-add --user_id $ADMIN_USER --role_id $ADMIN_ROLE --tenant_id $ADMIN_TENANT
 keystone user-role-add --user_id $ADMIN_USER --role_id $ADMIN_ROLE --tenant_id $DEMO_TENANT
 keystone user-role-add --user_id $DEMO_USER --role_id $ANOTHER_ROLE --tenant_id $DEMO_TENANT
-
-# TODO(termie): these two might be dubious
-keystone user-role-add --user_id $ADMIN_USER --role_id $KEYSTONEADMIN_ROLE --tenant_id $ADMIN_TENANT
-keystone user-role-add --user_id $ADMIN_USER --role_id $KEYSTONESERVICE_ROLE --tenant_id $ADMIN_TENANT
-
 
 # The Member role is used by Horizon and Swift so we need to keep it:
 MEMBER_ROLE=$(get_id keystone role-create --name=Member)
@@ -229,23 +222,23 @@ if [[ "$ENABLED_SERVICES" =~ "swift" ]]; then
 fi
 
 if [[ "$ENABLED_SERVICES" =~ "q-svc" ]]; then
-    QUANTUM_USER=$(get_id keystone user-create \
-        --name=quantum \
+    NEUTRON_USER=$(get_id keystone user-create \
+        --name=neutron \
         --pass="$SERVICE_PASSWORD" \
         --tenant_id $SERVICE_TENANT \
-        --email=quantum@example.com)
+        --email=neutron@example.com)
     keystone user-role-add \
         --tenant_id $SERVICE_TENANT \
-        --user_id $QUANTUM_USER \
+        --user_id $NEUTRON_USER \
         --role_id $ADMIN_ROLE
     if [[ "$KEYSTONE_CATALOG_BACKEND" = 'sql' ]]; then
-        QUANTUM_SERVICE=$(get_id keystone service-create \
-            --name=quantum \
+        NEUTRON_SERVICE=$(get_id keystone service-create \
+            --name=neutron \
             --type=network \
             --description="Quantum Service")
         keystone endpoint-create \
             --region RegionOne \
-            --service_id $QUANTUM_SERVICE \
+            --service_id $NEUTRON_SERVICE \
             --publicurl "http://$SERVICE_HOST:9696/" \
             --adminurl "http://$SERVICE_HOST:9696/" \
             --internalurl "http://$SERVICE_HOST:9696/"
