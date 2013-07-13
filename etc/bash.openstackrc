@@ -1,38 +1,29 @@
-# adjusted by bmw
-# default credentials for SUSE OpenStack appliance
+# default credentials for SUSE OpenStack Appliance
 
 # input: optional username
 # input: optional password
-# sets required variables for nova, will read from stdin if param not given
+# sets required variables for OpenStack services, reads from stdin if not given
 function setcreds() {
-	export NOVA_PROJECT_ID=$1
-	if [ -z "$NOVA_PROJECT_ID" ] ; then
+	export OS_AUTH_USER=$1
+	if [ -z "$OS_AUTH_USER" ] ; then
 		echo -n "username: "
-		read NOVA_PROJECT_ID
+		read OS_AUTH_USER
 	fi
-	export NOVA_USERNAME=$NOVA_PROJECT_ID
-	export NOVA_API_KEY=$2
-	if [ -z "$NOVA_API_KEY" ] ; then
+	export OS_PASSWORD=$2
+	if [ -z "$OS_PASSWORD" ] ; then
 		echo "password (will not be echoed): "
-		read -s NOVA_API_KEY
+		read -s OS_PASSWORD
 	fi
-	export EC2_ACCESS_KEY=$NOVA_PROJECT_ID
-	export EC2_SECRET_KEY=$NOVA_API_KEY
-	# for glance/keystone
-	export OS_AUTH_USER=$NOVA_USERNAME
-	export OS_USERNAME=$NOVA_USERNAME
-	export OS_TENANT_NAME=$NOVA_PROJECT_ID
-	export OS_AUTH_KEY=$NOVA_API_KEY
-	export OS_PASSWORD=$NOVA_API_KEY
-	export OS_AUTH_TENANT=$NOVA_PROJECT_ID
-	export OS_AUTH_URL=$NOVA_URL
+	export EC2_ACCESS_KEY=$1
+	export EC2_SECRET_KEY=$2
+	export OS_USERNAME=$1
+	export OS_TENANT_NAME=$1
+	export OS_AUTH_KEY=$2
+	export OS_AUTH_TENANT=$1
+	export OS_AUTH_URL=http://127.0.0.1:5000/v2.0/
 	export OS_AUTH_STRATEGY=keystone
 }
 
-export NOVA_URL=http://127.0.0.1:5000/v2.0/
-export NOVA_VERSION=1.1
-export NOVA_REGION_NAME=RegionOne
-export NOVA_AUTH_STRATEGY=keystone
 #setcreds demo openstack
 
 # for euca2ools

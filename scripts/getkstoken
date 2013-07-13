@@ -1,6 +1,6 @@
 #!/bin/sh
-NOVA_USERNAME=${NOVA_USERNAME:-admin}
-NOVA_API_KEY=${NOVA_API_KEY:-openstack}
+OS_AUTH_USER=${OS_AUTH_USER:-admin}
+OS_AUTH_PASSWORD=${OS_AUTH_PASSWORD:-openstack}
 HOST_IP=${HOST_IP:-127.0.0.1}
-curl -s -d "{\"auth\":{\"passwordCredentials\": {\"username\": \"$NOVA_USERNAME\", \"password\": \"$NOVA_API_KEY\"}}}" -H "Content-type: application/json" http://$HOST_IP:5000/v2.0/tokens | python -c "import sys; import json; tok = json.loads(sys.stdin.read()); print tok['access']['token']['id'];"
+curl -s -d "{\"auth\":{\"passwordCredentials\": {\"username\": \"$OS_AUTH_USER\", \"password\": \"$OS_AUTH_PASSWORD\"}}}" -H "Content-type: application/json" http://$HOST_IP:5000/v2.0/tokens | python -c "import sys; import json; tok = json.loads(sys.stdin.read()); print tok['access']['token']['id'];"
 
