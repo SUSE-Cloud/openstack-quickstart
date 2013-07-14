@@ -406,8 +406,10 @@ grep -q ntp.org /etc/ntp.conf || echo server pool.ntp.org >> /etc/ntp.conf
 
 # change libvirt to run qemu as user qemu
 sed -i -e 's;.*user.*=.*;user = "qemu";' /etc/libvirt/qemu.conf
-chown root:kvm /dev/kvm
-chmod 660 /dev/kvm
+if [ -e /dev/kvm ]; then
+    chown root:kvm /dev/kvm
+    chmod 660 /dev/kvm
+fi
 
 #-----------------------------------------
 ## setup heat configuration
@@ -419,13 +421,14 @@ openstack-config --set /etc/heat/heat-engine.conf DEFAULT sql_connection $DB://h
 ## setup neutron configuration
 #-----------------------------------------
 
-openstack-config  --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini DATABASE sql_connection $DB://neutron:$mpw@$IP/neutron
-openstack-config  --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini LINUX_BRIDGE physical_interface_mappings root-bridge:vefq,physnet1:eth0
-openstack-config  --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini VLANS network_vlan_ranges root-bridge,physnet1
+openstack-config --set /etc/neutron/neutron.conf database connection $DB://neutron:$mpw@$IP/neutron
+openstack-config --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini DATABASE sql_connection $DB://neutron:$mpw@$IP/neutron
+openstack-config --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini LINUX_BRIDGE physical_interface_mappings root-bridge:vefq,physnet1:eth0
+openstack-config --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini VLANS network_vlan_ranges root-bridge,physnet1
 # TODO: should be default openstack-neutron-l3-agent package
-openstack-config  --set /etc/neutron/l3_agent.ini DEFAULT external_network_bridge ""
+openstack-config --set /etc/neutron/l3_agent.ini DEFAULT external_network_bridge ""
 ### turnof namespace to allow connecting to VMs from demo admin node (simple setup for demo purposes only)
-openstack-config  --set /etc/neutron/dhcp_agent.ini DEFAULT use_namespaces False
+openstack-config --set /etc/neutron/dhcp_agent.ini DEFAULT use_namespaces False
 ### start neutron api
 start_and_enable_service rabbitmq-server
 start_and_enable_service openstack-neutron
