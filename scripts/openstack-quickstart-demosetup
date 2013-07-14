@@ -286,7 +286,7 @@ if [ -f /etc/tgt/targets.conf ]; then
     }
 fi
 
-for m in cinder nova glance neutron ; do
+for m in cinder heat nova glance neutron ; do
     sed -i -e 's/%SERVICE_TENANT_NAME%/service/' \
            -e "s/%SERVICE_USER%/$m/" \
            -e "s/%SERVICE_PASSWORD%/$ADMIN_PASSWORD/" \
@@ -307,7 +307,7 @@ if [ "$DB" = "postgresql" ] ; then
         fi
     fi
     sudo -u postgres dropdb keystone || true # needed for keystone_data.sh
-    for DBNAME in nova cinder keystone glance horizon neutron ; do
+    for DBNAME in nova cinder keystone glance horizon heat neutron ; do
         # use ALTER if CREATE fails: the role probably already exists
         # in that case
         sudo -u postgres psql -c "CREATE ROLE $DBNAME PASSWORD '$mpw' LOGIN;" || \
@@ -408,6 +408,12 @@ grep -q ntp.org /etc/ntp.conf || echo server pool.ntp.org >> /etc/ntp.conf
 sed -i -e 's;.*user.*=.*;user = "qemu";' /etc/libvirt/qemu.conf
 chown root:kvm /dev/kvm
 chmod 660 /dev/kvm
+
+#-----------------------------------------
+## setup heat configuration
+#-----------------------------------------
+
+openstack-config --set /etc/heat/heat-engine.conf DEFAULT sql_connection $DB://heat:$mpw@$IP/heat
 
 #-----------------------------------------
 ## setup neutron configuration
