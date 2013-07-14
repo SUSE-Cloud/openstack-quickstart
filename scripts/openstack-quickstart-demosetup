@@ -454,7 +454,7 @@ neutron router-interface-add main fixed
 neutron net-create ext --tenant-id $SERVICE_TENANT_ID --provider:network_type local --router:external True
 neutron subnet-create --name ext --disable-dhcp --tenant-id $SERVICE_TENANT_ID ext $floatingnet
 neutron router-gateway-set main ext
- create four floatingip pools
+# create four floatingip pools
 for i in 1 2 3 4; do
 neutron floatingip-create ext
 done
