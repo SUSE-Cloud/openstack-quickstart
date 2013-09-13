@@ -42,7 +42,8 @@ function get_router_id () {
 }
 
 function get_service_tenant_id () {
-	id=`OS_SERVICE_TOKEN=$SERVICE_TOKEN keystone tenant-get service | awk '/id/  { print $4 } '`
+	id=`keystone tenant-get service | awk '/id/  { print $4 } '`
+
 	echo $id
 }
 
@@ -216,49 +217,76 @@ EOF
     /etc/init.d/network start
 fi
 
-# configure dashboard/apache sample configuration from the package:
-install -m 644 /etc/apache2/conf.d/openstack-dashboard.conf{.sample,}
-a2enmod rewrite
-a2enmod ssl
-a2enmod wsgi
-a2enflag SSL
 
-DASHBOARD_LOCAL_SET=/usr/share/openstack-dashboard/openstack_dashboard/local/local_settings.py
-if grep -q "^\s*CACHE_BACKEND" $DASHBOARD_LOCAL_SET ; then
-    sed -i "s|^\s*CACHE_BACKEND.*$|CACHE_BACKEND = 'memcached://127.0.0.1:11211/'|" $DASHBOARD_LOCAL_SET
-else
-    echo "CACHE_BACKEND = 'memcached://127.0.0.1:11211/'" >> $DASHBOARD_LOCAL_SET
-fi
+#-----------------------------------------
+# setup OpenStack Dashboard (optional)
+#-----------------------------------------
 
-if [ "$DB" = "postgresql" ] ; then
-cat >> $DASHBOARD_LOCAL_SET <<EODASHDB
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'horizon',
-        'USER': 'horizon',
-        'PASSWORD': '$mpw',
+if rpmqpack |grep -qx openstack-dashboard; then
+    # configure dashboard/apache sample configuration from the package:
+    install -m 644 /etc/apache2/conf.d/openstack-dashboard.conf{.sample,}
+    a2enmod rewrite
+    a2enmod ssl
+    a2enmod wsgi
+    a2enflag SSL
+
+    DASHBOARD_LOCAL_SET=/usr/share/openstack-dashboard/openstack_dashboard/local/local_settings.py
+    if grep -q "^\s*CACHE_BACKEND" $DASHBOARD_LOCAL_SET ; then
+        sed -i "s|^\s*CACHE_BACKEND.*$|CACHE_BACKEND = 'memcached://127.0.0.1:11211/'|" $DASHBOARD_LOCAL_SET
+    else
+        echo "CACHE_BACKEND = 'memcached://127.0.0.1:11211/'" >> $DASHBOARD_LOCAL_SET
+    fi
+
+    if [ "$DB" = "postgresql" ] ; then
+    cat >> $DASHBOARD_LOCAL_SET <<EODASHDB
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql_psycopg2',
+            'NAME': 'horizon',
+            'USER': 'horizon',
+            'PASSWORD': '$mpw',
+        }
     }
-}
 EODASHDB
+    fi
+
+    if grep -q "^USE_SSL =" $DASHBOARD_LOCAL_SET; then
+        sed -i -e "s/^USE_SSL =.*/USE_SSL = True/" $DASHBOARD_LOCAL_SET
+    else
+        echo "USE_SSL = True" >> $DASHBOARD_LOCAL_SET
+    fi
+    # Use 'secure' session and CSRF cookies (bnc#753582):
+    cat >> $DASHBOARD_LOCAL_SET <<EOSEC
+    # Use 'secure' cookies when we use SSL, see https://docs.djangoproject.com/en/1.4/topics/security/:
+    SESSION_COOKIE_SECURE = CSRF_COOKIE_SECURE = USE_SSL
+EOSEC
+    # sync dashboard DB "after" the database is created
+    run_as wwwrun "cd /usr/share/openstack-dashboard; umask 0027; python -m 'manage' syncdb --noinput"
 fi
 
-if grep -q "^USE_SSL =" $DASHBOARD_LOCAL_SET; then
-    sed -i -e "s/^USE_SSL =.*/USE_SSL = True/" $DASHBOARD_LOCAL_SET
-else
-    echo "USE_SSL = True" >> $DASHBOARD_LOCAL_SET
-fi
-# Use 'secure' session and CSRF cookies (bnc#753582):
-cat >> $DASHBOARD_LOCAL_SET <<EOSEC
-# Use 'secure' cookies when we use SSL, see https://docs.djangoproject.com/en/1.4/topics/security/:
-SESSION_COOKIE_SECURE = CSRF_COOKIE_SECURE = USE_SSL
-EOSEC
+KEYSTONE_AUTH_HOST=${KEYSTONE_AUTH_HOST:-$SERVICE_HOST}
+KEYSTONE_AUTH_PORT=${KEYSTONE_AUTH_PORT:-35357}
+KEYSTONE_AUTH_PROTOCOL=${KEYSTONE_AUTH_PROTOCOL:-http}
+SERVICE_ENDPOINT=$KEYSTONE_AUTH_PROTOCOL://$KEYSTONE_AUTH_HOST:$KEYSTONE_AUTH_PORT/v2.0
+
+#-----------------------------------------
+# setup keystone client endpoint configuration
+#-----------------------------------------
+
+for c in /etc/glance/glance-api.conf /etc/glance/glance-registry.conf \
+    /etc/neutron/neutron.conf /etc/cinder/cinder.conf ; do
+    openstack-config --set $c keystone_authtoken auth_host $IP
+    openstack-config --set $c keystone_authtoken auth_port 35357
+    openstack-config --set $c keystone_authtoken auth_protocol http
+    openstack-config --set $c keystone_authtoken auth_uri $SERVICE_ENDPOINT
+    openstack-config --set $c keystone_authtoken admin_tenant_name service
+done
+
+#-----------------------------------------
+## setup glance configuration
+#-----------------------------------------
 
 # replace default IP in all configuration files
-sed -i -e "s;127.0.0.1;$IP;" /etc/nova/api-paste.ini /etc/glance/glance-api.conf /etc/glance/glance-registry.conf
-sed -i -e "s,<IP>,$IP,g" /etc/nova/nova.conf
-#openstack-config --set /etc/nova/nova.conf DEFAULT flat_network_bridge "$br"
-#openstack-config --set /etc/nova/nova.conf DEFAULT bridge_interface "$br"
 openstack-config --set /etc/nova/nova.conf DEFAULT sql_connection "$DB://nova:$mpw@$IP/nova"
 openstack-config --set /etc/nova/nova.conf DEFAULT glance_api_servers "$IP:9292"
 openstack-config --set /etc/nova/nova.conf DEFAULT novncproxy_base_url "http://$IP:6080/vnc_auto.html"
@@ -331,10 +359,6 @@ else
 fi
 
 
-# sync dashboard DB "after" the database is created
-run_as wwwrun "cd /usr/share/openstack-dashboard; umask 0027; python -m 'manage' syncdb --noinput"
-
-
 run_as $CINDER_SYSTEM_USER "cinder-manage db sync"
 run_as $NOVA_SYSTEM_USER "nova-manage db sync"
 # optional - makes life better with little RAM
@@ -383,10 +407,6 @@ else
 	keystone_data=$PREFIX/scripts/keystone_data.sh
 fi
 ENABLED_SERVICES=${ENABLED_SERVICES:-g-api,g-reg,key,n-api,n-cpu,n-net,n-vol,c-api,n-sch,n-novnc,n-xvnc,q-svc,heat,horizon,swift,mysql,rabbit}
-KEYSTONE_AUTH_HOST=${KEYSTONE_AUTH_HOST:-$SERVICE_HOST}
-KEYSTONE_AUTH_PORT=${KEYSTONE_AUTH_PORT:-35357}
-KEYSTONE_AUTH_PROTOCOL=${KEYSTONE_AUTH_PROTOCOL:-http}
-SERVICE_ENDPOINT=$KEYSTONE_AUTH_PROTOCOL://$KEYSTONE_AUTH_HOST:$KEYSTONE_AUTH_PORT/v2.0
 ADMIN_PASSWORD=$ADMIN_PASSWORD SERVICE_TOKEN=$SERVICE_TOKEN SERVICE_ENDPOINT=$SERVICE_ENDPOINT DEVSTACK_DIR=/root ENABLED_SERVICES=$ENABLED_SERVICES bash $keystone_data
 
 . /etc/bash.bashrc.local
