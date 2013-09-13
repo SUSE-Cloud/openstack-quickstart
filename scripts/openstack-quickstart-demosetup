@@ -369,6 +369,9 @@ else
 	keystone_data=$PREFIX/scripts/keystone_data.sh
 fi
 ENABLED_SERVICES=${ENABLED_SERVICES:-g-api,g-reg,key,n-api,n-cpu,n-net,n-vol,c-api,n-sch,n-novnc,n-xvnc,q-svc,heat,horizon,swift,mysql,rabbit}
+if [ "x$with_tempest" = "xyes" ]; then
+    ENABLED_SERVICES+=",tempest"
+fi
 KEYSTONE_AUTH_HOST=${KEYSTONE_AUTH_HOST:-$SERVICE_HOST}
 KEYSTONE_AUTH_PORT=${KEYSTONE_AUTH_PORT:-35357}
 KEYSTONE_AUTH_PROTOCOL=${KEYSTONE_AUTH_PROTOCOL:-http}
@@ -482,3 +485,16 @@ for user in demo admin ; do
     nova secgroup-add-rule default udp 1 65535 0.0.0.0/0 # and all UDP
     nova secgroup-list-rules default # lists the rules
 done
+
+
+#-----------------------------------------
+# setup tempest configuration
+#-----------------------------------------
+
+if [ "x$with_tempest" = "xyes" ]; then
+    openstack-config --set /etc/tempest/tempest.conf  identity uri $SERVICE_ENDPOINT
+    openstack-config --set /etc/tempest/tempest.conf  identity admin_username admin
+    openstack-config --set /etc/tempest/tempest.conf  identity admin_password $pw
+    openstack-config --set /etc/tempest/tempest.conf  identity alt_password $pw
+    openstack-config --set /etc/tempest/tempest.conf  identity password $pw
+fi

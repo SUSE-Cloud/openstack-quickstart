@@ -23,5 +23,8 @@ DB=postgresql
 
 SERVICE_TOKEN=999888777666
 
+# Setup Tempest ?
+with_tempest=no
+
 # network bridge devive name
 br=br0
