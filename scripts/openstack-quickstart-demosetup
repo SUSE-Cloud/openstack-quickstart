@@ -52,7 +52,10 @@ function start_and_enable_service () {
     if [ -x $i ] ; then
         insserv $1
         $i restart
+        $i status
+        [ $? -eq 3 ] && { "Service $i is not running"; exit 1; }
     fi
+
 }
 
 function stop_and_disable_service () {
@@ -343,8 +346,7 @@ if [ "$DB" = "postgresql" ] ; then
         sudo -u postgres createdb -O $DBNAME $DBNAME || true
     done
     sudo -u postgres createuser -s root || :
-    /etc/init.d/postgresql restart
-    insserv postgresql
+    start_and_enable_service postgresql
 else
     echo | mysql -u root || pwquery=-p
     for DBNAME in nova cinder keystone glance horizon neutron ; do
@@ -510,10 +512,9 @@ if [ "$?" -ne "0" ]; then
     done
 else
     grep -q openstack-loopback-lvm /etc/init.d/boot.local || echo $openstack_loopback_lvm >> /etc/init.d/boot.local
-    for s in api scheduler volume ; do
-        /etc/init.d/openstack-cinder-$s restart
-        insserv openstack-cinder-$s
-    done
+    start_and_enable_service openstack-cinder-api
+    start_and_enable_service openstack-cinder-scheduler
+    start_and_enable_service openstack-cinder-volume
 fi
 
 for user in demo admin ; do
