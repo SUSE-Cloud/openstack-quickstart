@@ -408,7 +408,10 @@ if [ -z $PREFIX ] ; then
 else
 	keystone_data=$PREFIX/scripts/keystone_data.sh
 fi
-ENABLED_SERVICES=${ENABLED_SERVICES:-g-api,g-reg,key,n-api,n-cpu,n-net,n-vol,c-api,n-sch,n-novnc,n-xvnc,q-svc,heat,horizon,swift,mysql,rabbit}
+ENABLED_SERVICES="g-api,g-reg,key,n-api,n-cpu,n-net,n-vol,c-api,n-sch,n-novnc,n-xvnc,q-svc,heat,horizon,swift,mysql,rabbit"
+if [ "x$with_tempest" = "xyes" ]; then
+    ENABLED_SERVICES+=",tempest"
+fi
 ADMIN_PASSWORD=$ADMIN_PASSWORD SERVICE_TOKEN=$SERVICE_TOKEN SERVICE_ENDPOINT=$SERVICE_ENDPOINT DEVSTACK_DIR=/root ENABLED_SERVICES=$ENABLED_SERVICES bash $keystone_data
 
 . /etc/bash.bashrc.local
@@ -525,3 +528,14 @@ for user in demo admin ; do
     nova secgroup-add-rule default udp 1 65535 0.0.0.0/0 # and all UDP
     nova secgroup-list-rules default # lists the rules
 done
+
+
+#-----------------------------------------
+# setup tempest configuration
+#-----------------------------------------
+
+if [ "x$with_tempest" = "xyes" ]; then
+    openstack-utils --set /etc/tempest/tempest.conf  identity uri $SERVICE_ENDPOINT
+    openstack-utils --set /etc/tempest/tempest.conf  identity admin_username admin
+    openstack-utils --set /etc/tempest/tempest.conf  identity admin_password $pw
+fi
