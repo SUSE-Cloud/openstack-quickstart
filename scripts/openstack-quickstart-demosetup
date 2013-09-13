@@ -415,7 +415,7 @@ fi
 ## setup heat configuration
 #-----------------------------------------
 
-openstack-config --set /etc/heat/heat-engine.conf DEFAULT sql_connection $DB://heat:$mpw@$IP/heat
+openstack-config --set /etc/heat/heat.conf DEFAULT sql_connection $DB://heat:$mpw@$IP/heat
 
 #-----------------------------------------
 ## setup neutron configuration
