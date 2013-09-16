@@ -220,7 +220,6 @@ EOF
     /etc/init.d/network start
 fi
 
-
 #-----------------------------------------
 # setup OpenStack Dashboard (optional)
 #-----------------------------------------
@@ -231,6 +230,7 @@ if rpmqpack |grep -qx openstack-dashboard; then
     a2enmod rewrite
     a2enmod ssl
     a2enmod wsgi
+    a2enmod socache_shmcb
     a2enflag SSL
 
     DASHBOARD_LOCAL_SET=/usr/share/openstack-dashboard/openstack_dashboard/local/local_settings.py
