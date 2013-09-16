@@ -224,6 +224,7 @@ fi
 install -m 644 /etc/apache2/conf.d/openstack-dashboard.conf{.sample,}
 a2enmod rewrite
 a2enmod ssl
+a2enmod socache_shmcb
 a2enmod wsgi
 a2enflag SSL
 
