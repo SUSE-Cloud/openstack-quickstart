@@ -337,21 +337,6 @@ run_as wwwrun "cd /usr/share/openstack-dashboard; umask 0027; python -m 'manage'
 
 run_as $CINDER_SYSTEM_USER "cinder-manage db sync"
 run_as $NOVA_SYSTEM_USER "nova-manage db sync"
-# optional - makes life better with little RAM
-if [ "$DB" = "postgresql" ] ; then
-    echo "
-    update instance_types set memory_mb=3072 where name='m1.medium';
-    update instance_types set memory_mb=4096 where name='m1.large';
-    update instance_types set memory_mb=5120 where name='m1.xlarge';
-    " | sudo -u postgres psql -d nova
-else
-    echo "
-    use nova;
-    update instance_types set memory_mb=3072 where name='m1.medium';
-    update instance_types set memory_mb=4096 where name='m1.large';
-    update instance_types set memory_mb=5120 where name='m1.xlarge';
-    " | mysql -u root $pwquery
-fi
 
 #run_as $NOVA_SYSTEM_USER "nova-manage network create 10.10.134.32/27 1 32"
 #migrated to quantum
