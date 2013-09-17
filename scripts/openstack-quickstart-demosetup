@@ -283,6 +283,8 @@ for c in /etc/glance/glance-api.conf /etc/glance/glance-registry.conf \
     openstack-config --set $c keystone_authtoken auth_protocol http
     openstack-config --set $c keystone_authtoken auth_uri $SERVICE_ENDPOINT
     openstack-config --set $c keystone_authtoken admin_tenant_name service
+    openstack-config --set $c keystone_authtoken admin_user '%SERVICE_USER%'
+    openstack-config --set $c keystone_authtoken admin_password '%SERVICE_PASSWORD%'
 done
 
 #-----------------------------------------
