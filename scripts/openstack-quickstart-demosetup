@@ -536,7 +536,7 @@ done
 # setup tempest configuration
 #-----------------------------------------
 
-if [ "x$with_tempest" = "xyes" ]; then
+if [ "x$with_tempest" = "xyes" -a -e /etc/tempest/tempest.conf ]; then
     openstack-config --set /etc/tempest/tempest.conf  identity uri $SERVICE_ENDPOINT
     openstack-config --set /etc/tempest/tempest.conf  identity admin_username admin
     openstack-config --set /etc/tempest/tempest.conf  identity admin_password $pw
