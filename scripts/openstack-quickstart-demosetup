@@ -517,9 +517,9 @@ if [ "$?" -ne "0" ]; then
     done
 else
     grep -q openstack-loopback-lvm /etc/init.d/boot.local || echo $openstack_loopback_lvm >> /etc/init.d/boot.local
-    start_and_enable_service openstack-cinder-api
-    start_and_enable_service openstack-cinder-scheduler
     start_and_enable_service openstack-cinder-volume
+    start_and_enable_service openstack-cinder-scheduler
+    start_and_enable_service openstack-cinder-api
 fi
 
 for user in demo admin ; do
