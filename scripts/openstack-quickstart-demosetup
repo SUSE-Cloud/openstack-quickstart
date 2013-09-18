@@ -242,14 +242,14 @@ if rpmqpack |grep -qx openstack-dashboard; then
 
     if [ "$DB" = "postgresql" ] ; then
     cat >> $DASHBOARD_LOCAL_SET <<EODASHDB
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql_psycopg2',
-            'NAME': 'horizon',
-            'USER': 'horizon',
-            'PASSWORD': '$mpw',
-        }
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': 'horizon',
+        'USER': 'horizon',
+        'PASSWORD': '$mpw',
     }
+}
 EODASHDB
     fi
 
@@ -260,8 +260,8 @@ EODASHDB
     fi
     # Use 'secure' session and CSRF cookies (bnc#753582):
     cat >> $DASHBOARD_LOCAL_SET <<EOSEC
-    # Use 'secure' cookies when we use SSL, see https://docs.djangoproject.com/en/1.4/topics/security/:
-    SESSION_COOKIE_SECURE = CSRF_COOKIE_SECURE = USE_SSL
+# Use 'secure' cookies when we use SSL, see https://docs.djangoproject.com/en/1.4/topics/security/:
+SESSION_COOKIE_SECURE = CSRF_COOKIE_SECURE = USE_SSL
 EOSEC
     # sync dashboard DB "after" the database is created
     run_as wwwrun "cd /usr/share/openstack-dashboard; umask 0027; python -m 'manage' syncdb --noinput"
