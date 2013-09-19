@@ -23,6 +23,9 @@ DB=postgresql
 
 SERVICE_TOKEN=999888777666
 
+# Setup Horizon dashboard
+with_horizon=yes
+
 # Setup Tempest ?
 with_tempest=no
 

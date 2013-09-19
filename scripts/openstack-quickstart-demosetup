@@ -224,7 +224,8 @@ fi
 # setup OpenStack Dashboard (optional)
 #-----------------------------------------
 
-if rpmqpack |grep -qx openstack-dashboard; then
+
+if [ "x$with_horizon" = "xyes" ]; then
     # configure dashboard/apache sample configuration from the package:
     install -m 644 /etc/apache2/conf.d/openstack-dashboard.conf{.sample,}
     a2enmod rewrite
@@ -245,6 +246,7 @@ if rpmqpack |grep -qx openstack-dashboard; then
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'HOST': '$IP',
         'NAME': 'horizon',
         'USER': 'horizon',
         'PASSWORD': '$mpw',
@@ -499,7 +501,7 @@ ifup $ext_bridge_name
 #---------------------------------------
 
 # start services
-for s in ntp libvirtd $DB iscsitarget open-iscsi tgtd memcached apache2 openstack-nova-api openstack-nova-conductor openstack-nova-scheduler openstack-nova-compute openstack-nova-vncproxy openstack-glance-api openstack-glance-registry openstack-keystone openstack-nova-consoleauth openstack-novncproxy openstack-neutron-linuxbridge-agent openstack-neutron-dhcp-agent openstack-neutron-l3-agent openstack-neutron-metadata-agent
+for s in ntp libvirtd $DB iscsitarget open-iscsi tgtd memcached openstack-nova-api openstack-nova-conductor openstack-nova-scheduler openstack-nova-compute openstack-nova-vncproxy openstack-glance-api openstack-glance-registry openstack-keystone openstack-nova-consoleauth openstack-novncproxy openstack-neutron-linuxbridge-agent openstack-neutron-dhcp-agent openstack-neutron-l3-agent openstack-neutron-metadata-agent
 do
     start_and_enable_service $s
 done
