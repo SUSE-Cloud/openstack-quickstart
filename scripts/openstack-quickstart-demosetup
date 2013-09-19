@@ -275,19 +275,21 @@ fi
 
 KEYSTONE_AUTH_HOST=${KEYSTONE_AUTH_HOST:-$SERVICE_HOST}
 KEYSTONE_AUTH_PORT=${KEYSTONE_AUTH_PORT:-35357}
+KEYSTONE_SERVICE_PORT=${KEYSTONE_AUTH_PORT:-5000}
 KEYSTONE_AUTH_PROTOCOL=${KEYSTONE_AUTH_PROTOCOL:-http}
-SERVICE_ENDPOINT=$KEYSTONE_AUTH_PROTOCOL://$KEYSTONE_AUTH_HOST:$KEYSTONE_AUTH_PORT/v2.0
+KEYSTONE_PUBLIC_ENDPOINT=$KEYSTONE_AUTH_PROTOCOL://$KEYSTONE_AUTH_HOST:$KEYSTONE_SERVICE_PORT/v2.0
 
 #-----------------------------------------
 # setup keystone client endpoint configuration
 #-----------------------------------------
 
 for c in /etc/glance/glance-api.conf /etc/glance/glance-registry.conf \
-    /etc/neutron/neutron.conf /etc/cinder/cinder.conf ; do
+    /etc/neutron/neutron.conf /etc/cinder/cinder.conf \
+    /etc/heat/heat.conf /etc/nova/nova.conf ; do
     openstack-config --set $c keystone_authtoken auth_host $IP
     openstack-config --set $c keystone_authtoken auth_port 35357
     openstack-config --set $c keystone_authtoken auth_protocol http
-    openstack-config --set $c keystone_authtoken auth_uri $SERVICE_ENDPOINT
+    openstack-config --set $c keystone_authtoken auth_uri $KEYSTONE_PUBLIC_ENDPOINT
     openstack-config --set $c keystone_authtoken admin_tenant_name service
     openstack-config --set $c keystone_authtoken admin_user '%SERVICE_USER%'
     openstack-config --set $c keystone_authtoken admin_password '%SERVICE_PASSWORD%'
@@ -424,6 +426,7 @@ fi
 if [ "x$with_tempest" = "xyes" ]; then
     ENABLED_SERVICES+=",tempest"
 fi
+SERVICE_ENDPOINT=$KEYSTONE_AUTH_PROTOCOL://$KEYSTONE_AUTH_HOST:$KEYSTONE_AUTH_PORT/v2.0
 ADMIN_PASSWORD=$ADMIN_PASSWORD SERVICE_TOKEN=$SERVICE_TOKEN SERVICE_ENDPOINT=$SERVICE_ENDPOINT DEVSTACK_DIR=/root ENABLED_SERVICES=$ENABLED_SERVICES bash $keystone_data
 
 . /etc/bash.bashrc.local
@@ -556,7 +559,7 @@ done
 #-----------------------------------------
 
 if [ "x$with_tempest" = "xyes" -a -e /etc/tempest/tempest.conf ]; then
-    openstack-config --set /etc/tempest/tempest.conf  identity uri $SERVICE_ENDPOINT
+    openstack-config --set /etc/tempest/tempest.conf  identity uri $KEYSTONE_PUBLIC_ENDPOINT
     openstack-config --set /etc/tempest/tempest.conf  identity admin_username admin
     openstack-config --set /etc/tempest/tempest.conf  identity admin_password $pw
     openstack-config --set /etc/tempest/tempest.conf  identity alt_password $pw
