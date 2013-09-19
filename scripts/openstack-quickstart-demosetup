@@ -53,7 +53,11 @@ function start_and_enable_service () {
         insserv $1
         $i restart
         $i status
-        [ $? -eq 3 ] && { "Service $i is not running"; exit 1; }
+        [ $? -eq 3 ] && {
+            journalctl -xn || :
+            echo "Service $1 is not running"
+            exit 1
+        }
     fi
 
 }
@@ -302,6 +306,7 @@ openstack-config --set /etc/nova/nova.conf DEFAULT novncproxy_base_url "http://$
 # we revert to nova one
 openstack-config --set /etc/nova/nova.conf DEFAULT security_group_api nova
 openstack-config --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini SECURITYGROUP firewall_driver neutron.agent.firewall.NoopFirewallDriver
+openstack-config --set /etc/nova/nova.conf DEFAULT allow_resize_to_same_host True
 # TODO: this needs to be set as a default in openstack-nova package
 #openstack-config --set /etc/nova/nova.conf DEFAULT service_neutron true
 
@@ -412,7 +417,10 @@ if [ -z $PREFIX ] ; then
 else
 	keystone_data=$PREFIX/scripts/keystone_data.sh
 fi
-ENABLED_SERVICES="g-api,g-reg,key,n-api,n-cpu,n-net,n-vol,c-api,n-sch,n-novnc,n-xvnc,q-svc,heat,horizon,swift,mysql,rabbit"
+ENABLED_SERVICES="g-api,g-reg,key,n-api,n-cpu,n-net,n-vol,c-api,n-sch,n-novnc,n-xvnc,q-svc,heat,mysql,rabbit"
+if [ "x$with_horizon" = "xyes" ]; then
+    ENABLED_SERVICES+=",horizon"
+fi
 if [ "x$with_tempest" = "xyes" ]; then
     ENABLED_SERVICES+=",tempest"
 fi
@@ -439,12 +447,6 @@ if [ -e /dev/kvm ]; then
     chown root:kvm /dev/kvm
     chmod 660 /dev/kvm
 fi
-
-#-----------------------------------------
-## setup heat configuration
-#-----------------------------------------
-
-openstack-config --set /etc/heat/heat.conf DEFAULT sql_connection $DB://heat:$mpw@$IP/heat
 
 #-----------------------------------------
 ## setup neutron configuration
@@ -506,6 +508,21 @@ do
     start_and_enable_service $s
 done
 
+#-----------------------------------------
+## setup heat configuration
+#-----------------------------------------
+
+openstack-config --set /etc/heat/heat.conf DEFAULT sql_connection $DB://heat:$mpw@$IP/heat
+
+for s in openstack-heat-engine openstack-heat-api-cfn openstack-heat-api; do
+    start_and_enable_service $s
+done
+
+#-----------------------------------------
+## setup loopback LVM configuration
+#-----------------------------------------
+
+
 if [ -z $PREFIX ] ; then
 	openstack_loopback_lvm=/usr/sbin/openstack-loopback-lvm
 else
@@ -544,4 +561,8 @@ if [ "x$with_tempest" = "xyes" -a -e /etc/tempest/tempest.conf ]; then
     openstack-config --set /etc/tempest/tempest.conf  identity admin_password $pw
     openstack-config --set /etc/tempest/tempest.conf  identity alt_password $pw
     openstack-config --set /etc/tempest/tempest.conf  identity password $pw
+    openstack-config --set /etc/tempest/tempest.conf service_available neutron True
+    openstack-config --set /etc/tempest/tempest.conf service_available swift False
+    openstack-config --set /etc/tempest/tempest.conf stress max_instances 2
+    openstack-config --set /etc/tempest/tempest.conf service_available horizon $with_horizon
 fi
