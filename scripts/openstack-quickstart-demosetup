@@ -544,14 +544,12 @@ else
     start_and_enable_service openstack-cinder-api
 fi
 
-for user in demo admin ; do
-    setcreds $user $pw
-    nova secgroup-add-rule default icmp -1 -1 0.0.0.0/0 # to allow ping
-    nova secgroup-add-rule default tcp 22 22 0.0.0.0/0 # to allow only SSH or do
-    nova secgroup-add-rule default tcp 1 65535 0.0.0.0/0 # to allow all TCP
-    nova secgroup-add-rule default udp 1 65535 0.0.0.0/0 # and all UDP
-    nova secgroup-list-rules default # lists the rules
-done
+setcreds admin $pw
+nova secgroup-add-rule default icmp -1 -1 0.0.0.0/0 # to allow ping
+nova secgroup-add-rule default tcp 22 22 0.0.0.0/0 # to allow only SSH or do
+nova secgroup-add-rule default tcp 1 65535 0.0.0.0/0 # to allow all TCP
+nova secgroup-add-rule default udp 1 65535 0.0.0.0/0 # and all UDP
+nova secgroup-list-rules default # lists the rules
 
 
 #-----------------------------------------
