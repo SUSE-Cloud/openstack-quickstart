@@ -1,14 +1,11 @@
 #!/bin/bash -x
 
-# for development testing
-PREFIX=
-
 # go in a directory everybody can access
 # (postgresql commands usually have a 'could not change to "$PWD"' error
 # message if the postgres user cannot have access to $PWD...)
 cd /
 
-. $PREFIX/etc/openstackquickstartrc
+. /etc/openstackquickstartrc
 ADMIN_PASSWORD=$pw
 SERVICE_HOST=$IP
 
@@ -414,11 +411,7 @@ openstack-config --set /etc/keystone/keystone.conf DEFAULT admin_token "$SERVICE
 run_as $KEYSTONE_SYSTEM_USER "keystone-manage --config-file=/etc/keystone/keystone.conf db_sync"
 
 /etc/init.d/openstack-keystone restart
-if [ -z $PREFIX ] ; then
-	keystone_data=/usr/lib/devstack/keystone_data.sh
-else
-	keystone_data=$PREFIX/scripts/keystone_data.sh
-fi
+keystone_data=/usr/lib/devstack/keystone_data.sh
 ENABLED_SERVICES="g-api,g-reg,key,n-api,n-cpu,n-net,n-vol,c-api,n-sch,n-novnc,n-xvnc,q-svc,heat,mysql,rabbit"
 if [ "x$with_horizon" = "xyes" ]; then
     ENABLED_SERVICES+=",horizon"
@@ -526,11 +519,7 @@ done
 #-----------------------------------------
 
 
-if [ -z $PREFIX ] ; then
-	openstack_loopback_lvm=/usr/sbin/openstack-loopback-lvm
-else
-	openstack_loopback_lvm=$PREFIX/scripts/openstack-loopback-lvm
-fi
+openstack_loopback_lvm=/usr/sbin/openstack-loopback-lvm
 $openstack_loopback_lvm
 if [ "$?" -ne "0" ]; then
     # setup failed, so do not use
