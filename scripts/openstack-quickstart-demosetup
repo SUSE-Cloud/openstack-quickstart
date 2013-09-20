@@ -10,16 +10,10 @@ ADMIN_PASSWORD=$pw
 SERVICE_HOST=$IP
 
 KEYSTONE_SYSTEM_USER=openstack-keystone
-KEYSTONE_SYSTEM_GROUP=openstack-keystone
 GLANCE_SYSTEM_USER=openstack-glance
-GLANCE_SYSTEM_GROUP=openstack-glance
 CINDER_SYSTEM_USER=openstack-cinder
-CINDER_SYSTEM_GROUP=openstack-cinder
 NEUTRON_SYTEM_USER=openstack-neutron
-NEUTRON_SYTEM_GROUP=openstack-neutron
 NOVA_SYSTEM_USER=openstack-nova
-NOVA_SYSTEM_GROUP=openstack-nova
-HORIZON_SYSTEM_USER=openstack-horizon
 
 echo "Setting up OpenStack demo controller..."
 
@@ -48,13 +42,19 @@ function start_and_enable_service () {
     i=/etc/init.d/$1
     if [ -x $i ] ; then
         insserv $1
-        $i restart
+        if [ -n "$(type -p systemctl)" ]; then
+
+            systemctl start ${1}.service
+            systemctl enable ${1}.service
+        else
+            $i start
+        fi
         $i status
-        [ $? -eq 3 ] && {
+        if [ $? -eq 3 ]; then
             journalctl -xn || :
             echo "Service $1 is not running"
             exit 1
-        }
+        fi
     fi
 
 }
@@ -134,7 +134,7 @@ echo "export HOST_IP=$IP
 . /etc/bash.openstackrc
 setcreds admin $pw" >> /etc/bash.bashrc.local
 
-install_packages patterns-OpenStack-controller patterns-OpenStack-compute-node patterns-OpenStack-clients patterns-OpenStack-network-node openstack-utils
+install_packages patterns-OpenStack-controller patterns-OpenStack-compute-node patterns-OpenStack-clients patterns-OpenStack-network-node openstack-utils psmisc
 
 if [ "$DB" = "postgresql" ] ; then
     if grep -q "SUSE Linux Enterprise Server 11" /etc/SuSE-release; then
@@ -142,12 +142,80 @@ if [ "$DB" = "postgresql" ] ; then
     else
         install_packages postgresql-server python-psycopg2
     fi
-    /etc/init.d/postgresql restart
-else
-    # start mysql
-    /etc/init.d/mysql start
 fi
 
+# configure NTP, because we need synchronized time between nodes
+grep -q ntp.org /etc/ntp.conf || echo server pool.ntp.org >> /etc/ntp.conf
+
+# change libvirt to run qemu as user qemu
+sed -i -e 's;.*user.*=.*;user = "qemu";' /etc/libvirt/qemu.conf
+if [ -e /dev/kvm ]; then
+    chown root:kvm /dev/kvm
+    chmod 660 /dev/kvm
+fi
+
+# configure tgt for cinder
+if [ -f /etc/tgt/targets.conf ]; then
+    grep -q "include /var/lib/cinder/volumes" /etc/tgt/targets.conf || {
+        echo "include /var/lib/cinder/volumes/*" >> /etc/tgt/targets.conf
+        start_and_enable_service tgtd
+    }
+fi
+
+# Set up the database
+if [ "$DB" = "postgresql" ] ; then
+    DATADIR=/var/lib/pgsql/data
+    # No database exists? Start and Stop to create the initial files
+    if  [ ! -f $DATADIR/PG_VERSION ]; then
+        start_and_enable_service $DB
+        stop_and_disable_service $DB
+    fi
+    if ! grep -q ::/0 $DATADIR/pg_hba.conf ; then
+        sed -i "s/^\(host .*\) ident\(.*\)/\1 md5 \2/" "$DATADIR/pg_hba.conf"
+        sed -i "s/^\(local \)/local horizon all md5 sameuser\n\1/" "$DATADIR/pg_hba.conf"
+        # allow remote connections:
+        echo "listen_addresses = '*'" >> $DATADIR/postgresql.conf
+        echo "host all all 0.0.0.0/0 md5  sameuser" >> $DATADIR/pg_hba.conf
+        echo "host all all      ::/0 md5  sameuser" >> $DATADIR/pg_hba.conf
+        if ! rpm -q postgresql | grep -q postgresql-8 ; then
+            sed -i 's/\s*sameuser$//' $DATADIR/pg_hba.conf # adapt config syntax to postgresql-9
+        fi
+    fi
+else
+    echo | mysql -u root || pwquery=-p
+    for DBNAME in nova cinder keystone glance horizon neutron ; do
+        echo "
+        set global character_set_server=latin1;
+        set session character_set_server=latin1;
+        CREATE DATABASE IF NOT EXISTS $DBNAME;
+        GRANT ALL PRIVILEGES ON $DBNAME.* TO '$DBNAME'@localhost IDENTIFIED BY '$mpw';
+        GRANT ALL PRIVILEGES ON $DBNAME.* TO '$DBNAME'@'%' IDENTIFIED BY '$mpw';
+        " | mysql -u root $pwquery
+    done
+fi
+
+
+# start some initial services
+for s in ntp libvirtd $DB tgtd memcached
+do
+    start_and_enable_service $s
+done
+
+start_and_enable_service open-iscsi || :
+
+
+# Set up the database
+if [ "$DB" = "postgresql" ] ; then
+    sudo -u postgres dropdb keystone || true # needed for keystone_data.sh
+    for DBNAME in nova cinder keystone glance horizon heat neutron ; do
+        # use ALTER if CREATE fails: the role probably already exists
+        # in that case
+        sudo -u postgres psql -c "CREATE ROLE $DBNAME PASSWORD '$mpw' LOGIN;" || \
+        sudo -u postgres psql -c "ALTER ROLE $DBNAME PASSWORD '$mpw' LOGIN;"
+        sudo -u postgres createdb -O $DBNAME $DBNAME || true
+    done
+    sudo -u postgres createuser -s root || :
+fi
 
 grep -q -e vmx -e svm /proc/cpuinfo || MODE=lxc
 # use lxc or qemu, if kvm is unavailable
@@ -177,8 +245,7 @@ if test -e /sbin/SuSEfirewall2; then
 fi
 # activate ip-forwarding
 [ -e /etc/sysconfig/sysctl ] && sed -i -e 's;IP_FORWARD="no";IP_FORWARD="yes";' /etc/sysconfig/sysctl
-grep -q 'net.ipv4.ip_forward' /etc/sysctl.conf
-if [[ $? -eq 0 ]] ; then
+if grep -q 'net.ipv4.ip_forward' /etc/sysctl.conf; then
      sed -i -e 's;net.ipv4.ip_forward.*;net.ipv4.ip_forward = 1;' /etc/sysctl.conf
 else
      #sysctl file may not have ending new line
@@ -296,6 +363,14 @@ done
 ## setup glance configuration
 #-----------------------------------------
 
+sed -i "s%sql_connection =.*%sql_connection = $DB://glance:$mpw@$IP/glance%" /etc/glance/glance-registry.conf /etc/glance/glance-api.conf # db_sync is broken for postgresql
+#sed -i 's%sql_connection =.*%sql_connection = sqlite:////var/lib/glance/glance.sqlite%' /etc/glance/glance-registry.conf
+run_as $GLANCE_SYSTEM_USER "glance-manage db_sync"
+
+#-----------------------------------------
+## setup nova configuration
+#-----------------------------------------
+
 # replace default IP in all configuration files
 openstack-config --set /etc/nova/nova.conf DEFAULT sql_connection "$DB://nova:$mpw@$IP/nova"
 openstack-config --set /etc/nova/nova.conf DEFAULT glance_api_servers "$IP:9292"
@@ -304,10 +379,7 @@ openstack-config --set /etc/nova/nova.conf DEFAULT novncproxy_base_url "http://$
 # multiple tenants https://bugs.launchpad.net/neutron/+bug/1171997
 # we revert to nova one
 openstack-config --set /etc/nova/nova.conf DEFAULT security_group_api nova
-openstack-config --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini SECURITYGROUP firewall_driver neutron.agent.firewall.NoopFirewallDriver
 openstack-config --set /etc/nova/nova.conf DEFAULT allow_resize_to_same_host True
-# TODO: this needs to be set as a default in openstack-nova package
-#openstack-config --set /etc/nova/nova.conf DEFAULT service_neutron true
 
 extensions_path=$(ls -d /usr/lib*/python*/site-packages/extensions 2> /dev/null | head -n 1)
 if [ -n "$extensions_path" ]; then
@@ -317,56 +389,12 @@ fi
 # configure cinder
 openstack-config --set /etc/cinder/cinder.conf DEFAULT sql_connection "$DB://cinder:${mpw}@${IP}/cinder"
 
-# configure tgt for cinder
-if [ -f /etc/tgt/targets.conf ]; then
-    grep -q "include /var/lib/cinder/volumes" /etc/tgt/targets.conf || {
-        echo "include /var/lib/cinder/volumes/*" >> /etc/tgt/targets.conf
-        rctgtd restart
-    }
-fi
-
 for m in cinder heat nova glance neutron ; do
     sed -i -e 's/%SERVICE_TENANT_NAME%/service/' \
            -e "s/%SERVICE_USER%/$m/" \
            -e "s/%SERVICE_PASSWORD%/$ADMIN_PASSWORD/" \
                /etc/$m/*.ini /etc/$m/$m*.conf
 done
-
-if [ "$DB" = "postgresql" ] ; then
-    DATADIR=/var/lib/pgsql/data
-    if ! grep -q ::/0 $DATADIR/pg_hba.conf ; then
-        sed -i "s/^\(host .*\) ident\(.*\)/\1 md5 \2/" "$DATADIR/pg_hba.conf"
-        sed -i "s/^\(local \)/local horizon all md5 sameuser\n\1/" "$DATADIR/pg_hba.conf"
-        # allow remote connections:
-        echo "listen_addresses = '*'" >> $DATADIR/postgresql.conf
-        echo "host all all 0.0.0.0/0 md5  sameuser" >> $DATADIR/pg_hba.conf
-        echo "host all all      ::/0 md5  sameuser" >> $DATADIR/pg_hba.conf
-        if ! rpm -q postgresql | grep -q postgresql-8 ; then
-            sed -i 's/\s*sameuser$//' $DATADIR/pg_hba.conf # adapt config syntax to postgresql-9
-        fi
-    fi
-    sudo -u postgres dropdb keystone || true # needed for keystone_data.sh
-    for DBNAME in nova cinder keystone glance horizon heat neutron ; do
-        # use ALTER if CREATE fails: the role probably already exists
-        # in that case
-        sudo -u postgres psql -c "CREATE ROLE $DBNAME PASSWORD '$mpw' LOGIN;" || \
-        sudo -u postgres psql -c "ALTER ROLE $DBNAME PASSWORD '$mpw' LOGIN;"
-        sudo -u postgres createdb -O $DBNAME $DBNAME || true
-    done
-    sudo -u postgres createuser -s root || :
-    start_and_enable_service postgresql
-else
-    echo | mysql -u root || pwquery=-p
-    for DBNAME in nova cinder keystone glance horizon neutron ; do
-        echo "
-        set global character_set_server=latin1;
-        set session character_set_server=latin1;
-        CREATE DATABASE IF NOT EXISTS $DBNAME;
-        GRANT ALL PRIVILEGES ON $DBNAME.* TO '$DBNAME'@localhost IDENTIFIED BY '$mpw';
-        GRANT ALL PRIVILEGES ON $DBNAME.* TO '$DBNAME'@'%' IDENTIFIED BY '$mpw';
-        " | mysql -u root $pwquery
-    done
-fi
 
 
 run_as $CINDER_SYSTEM_USER "cinder-manage db sync"
@@ -386,17 +414,6 @@ else
     update instance_types set memory_mb=5120 where name='m1.xlarge';
     " | mysql -u root $pwquery
 fi
-
-#run_as $NOVA_SYSTEM_USER "nova-manage network create 10.10.134.32/27 1 32"
-#migrated to neutron
-#run_as $NOVA_SYSTEM_USER "nova-manage network create --fixed_range_v4=$testnet --label=testnet"
-
-
-# setup glance
-
-sed -i "s%sql_connection =.*%sql_connection = $DB://glance:$mpw@$IP/glance%" /etc/glance/glance-registry.conf /etc/glance/glance-api.conf # db_sync is broken for postgresql
-#sed -i 's%sql_connection =.*%sql_connection = sqlite:////var/lib/glance/glance.sqlite%' /etc/glance/glance-registry.conf
-run_as $GLANCE_SYSTEM_USER "glance-manage db_sync"
 
 # keystone demo setup, based on devstack.sh
 
@@ -434,21 +451,12 @@ if [ -e /etc/init.d/dnsmasq ]; then
     stop_and_disable_service dnsmasq
 fi
 
-# configure NTP, because we need synchronized time between nodes
-grep -q ntp.org /etc/ntp.conf || echo server pool.ntp.org >> /etc/ntp.conf
-
-# change libvirt to run qemu as user qemu
-sed -i -e 's;.*user.*=.*;user = "qemu";' /etc/libvirt/qemu.conf
-if [ -e /dev/kvm ]; then
-    chown root:kvm /dev/kvm
-    chmod 660 /dev/kvm
-fi
-
 #-----------------------------------------
 ## setup neutron configuration
 #-----------------------------------------
 
 openstack-config --set /etc/neutron/neutron.conf database connection $DB://neutron:$mpw@$IP/neutron
+openstack-config --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini SECURITYGROUP firewall_driver neutron.agent.firewall.NoopFirewallDriver
 openstack-config --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini DATABASE sql_connection $DB://neutron:$mpw@$IP/neutron
 openstack-config --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini LINUX_BRIDGE physical_interface_mappings root-bridge:vefq,physnet1:eth0
 openstack-config --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini VLANS network_vlan_ranges root-bridge,physnet1
@@ -458,7 +466,15 @@ openstack-config --set /etc/neutron/l3_agent.ini DEFAULT external_network_bridge
 openstack-config --set /etc/neutron/dhcp_agent.ini DEFAULT use_namespaces False
 ### start neutron api
 start_and_enable_service rabbitmq-server
-start_and_enable_service openstack-neutron
+
+# Start Keystone and Neutron
+for s in openstack-keystone \
+    openstack-neutron openstack-neutron-linuxbridge-agent openstack-neutron-dhcp-agent \
+    openstack-neutron-l3-agent openstack-neutron-metadata-agent
+do
+    start_and_enable_service $s
+done
+
 ### wait until neutron will start
 cnt=0
 while : ; do
@@ -498,8 +514,10 @@ ifup $ext_bridge_name
 ## end neutron setup configuration
 #---------------------------------------
 
-# start services
-for s in ntp libvirtd $DB iscsitarget open-iscsi tgtd memcached openstack-nova-api openstack-nova-conductor openstack-nova-scheduler openstack-nova-compute openstack-nova-vncproxy openstack-glance-api openstack-glance-registry openstack-keystone openstack-nova-consoleauth openstack-novncproxy openstack-neutron-linuxbridge-agent openstack-neutron-dhcp-agent openstack-neutron-l3-agent openstack-neutron-metadata-agent
+# Start glance and nova
+for s in openstack-glance-api openstack-glance-registry \
+    openstack-nova-api openstack-nova-conductor openstack-nova-scheduler openstack-nova-compute openstack-novncproxy \
+    openstack-nova-consoleauth
 do
     start_and_enable_service $s
 done
