@@ -498,6 +498,8 @@ neutron router-create main
 neutron router-interface-add main fixed
 ## floating/external
 neutron net-create ext --tenant-id $SERVICE_TENANT_ID --provider:network_type local --router:external True
+ext_network_id=$(neutron net-list | grep ' ext '  | cut -d' ' -f2)
+ext_router_id=$(neutron router-list | grep $ext_network_id | cut -d' ' -f2)
 neutron subnet-create --name ext --disable-dhcp --tenant-id $SERVICE_TENANT_ID ext $floatingnet
 neutron router-gateway-set main ext
 # create four floatingip pools
@@ -569,6 +571,8 @@ if [ "x$with_tempest" = "xyes" -a -e /etc/tempest/tempest.conf ]; then
     openstack-config --set /etc/tempest/tempest.conf  identity admin_password $pw
     openstack-config --set /etc/tempest/tempest.conf  identity alt_password $pw
     openstack-config --set /etc/tempest/tempest.conf  identity password $pw
+    openstack-config --set /etc/tempest/tempest.conf  network public_network_id $ext_network_id
+    openstack-config --set /etc/tempest/tempest.conf  network public_router_id $ext_router_id
     openstack-config --set /etc/tempest/tempest.conf service_available neutron True
     openstack-config --set /etc/tempest/tempest.conf service_available swift False
     openstack-config --set /etc/tempest/tempest.conf stress max_instances 2
