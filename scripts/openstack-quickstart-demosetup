@@ -134,7 +134,7 @@ echo "export HOST_IP=$IP
 . /etc/bash.openstackrc
 setcreds admin $pw" >> /etc/bash.bashrc.local
 
-install_packages patterns-OpenStack-controller patterns-OpenStack-compute-node patterns-OpenStack-clients patterns-OpenStack-network-node openstack-utils psmisc
+install_packages patterns-OpenStack-controller patterns-OpenStack-compute-node patterns-OpenStack-clients patterns-OpenStack-network-node crudini psmisc
 
 if [ "$DB" = "postgresql" ] ; then
     if grep -q "SUSE Linux Enterprise Server 11" /etc/SuSE-release; then
@@ -221,7 +221,7 @@ grep -q -e vmx -e svm /proc/cpuinfo || MODE=lxc
 # use lxc or qemu, if kvm is unavailable
 if rpm -q openstack-nova-compute >/dev/null ; then
     if [ "$MODE" = lxc ] ; then
-        openstack-config --set /etc/nova/nova.conf DEFAULT libvirt_type lxc
+        crudini --set /etc/nova/nova.conf DEFAULT libvirt_type lxc
         install_packages lxc
         # not sure what this is good for, cgroups is and should be mounted under /sys/fs/cgroup
         #echo mount -t cgroup none /cgroup >> /etc/init.d/boot.local
@@ -350,13 +350,13 @@ KEYSTONE_PUBLIC_ENDPOINT=$KEYSTONE_AUTH_PROTOCOL://$KEYSTONE_AUTH_HOST:$KEYSTONE
 for c in /etc/glance/glance-api.conf /etc/glance/glance-registry.conf \
     /etc/neutron/neutron.conf /etc/cinder/cinder.conf \
     /etc/heat/heat.conf /etc/nova/nova.conf ; do
-    openstack-config --set $c keystone_authtoken auth_host $IP
-    openstack-config --set $c keystone_authtoken auth_port 35357
-    openstack-config --set $c keystone_authtoken auth_protocol http
-    openstack-config --set $c keystone_authtoken auth_uri $KEYSTONE_PUBLIC_ENDPOINT
-    openstack-config --set $c keystone_authtoken admin_tenant_name service
-    openstack-config --set $c keystone_authtoken admin_user '%SERVICE_USER%'
-    openstack-config --set $c keystone_authtoken admin_password '%SERVICE_PASSWORD%'
+    crudini --set $c keystone_authtoken auth_host $IP
+    crudini --set $c keystone_authtoken auth_port 35357
+    crudini --set $c keystone_authtoken auth_protocol http
+    crudini --set $c keystone_authtoken auth_uri $KEYSTONE_PUBLIC_ENDPOINT
+    crudini --set $c keystone_authtoken admin_tenant_name service
+    crudini --set $c keystone_authtoken admin_user '%SERVICE_USER%'
+    crudini --set $c keystone_authtoken admin_password '%SERVICE_PASSWORD%'
 done
 
 #-----------------------------------------
@@ -372,22 +372,22 @@ run_as $GLANCE_SYSTEM_USER "glance-manage db_sync"
 #-----------------------------------------
 
 # replace default IP in all configuration files
-openstack-config --set /etc/nova/nova.conf DEFAULT sql_connection "$DB://nova:$mpw@$IP/nova"
-openstack-config --set /etc/nova/nova.conf DEFAULT glance_api_servers "$IP:9292"
-openstack-config --set /etc/nova/nova.conf DEFAULT novncproxy_base_url "http://$IP:6080/vnc_auto.html"
+crudini --set /etc/nova/nova.conf DEFAULT sql_connection "$DB://nova:$mpw@$IP/nova"
+crudini --set /etc/nova/nova.conf DEFAULT glance_api_servers "$IP:9292"
+crudini --set /etc/nova/nova.conf DEFAULT novncproxy_base_url "http://$IP:6080/vnc_auto.html"
 # TODO: neutron security group is broken for network shared beetwen
 # multiple tenants https://bugs.launchpad.net/neutron/+bug/1171997
 # we revert to nova one
-openstack-config --set /etc/nova/nova.conf DEFAULT security_group_api nova
-openstack-config --set /etc/nova/nova.conf DEFAULT allow_resize_to_same_host True
+crudini --set /etc/nova/nova.conf DEFAULT security_group_api nova
+crudini --set /etc/nova/nova.conf DEFAULT allow_resize_to_same_host True
 
 extensions_path=$(ls -d /usr/lib*/python*/site-packages/extensions 2> /dev/null | head -n 1)
 if [ -n "$extensions_path" ]; then
-    openstack-config --set /etc/nova/nova.conf DEFAULT osapi_extensions_path "$extensions_path"
+    crudini --set /etc/nova/nova.conf DEFAULT osapi_extensions_path "$extensions_path"
 fi
 
 # configure cinder
-openstack-config --set /etc/cinder/cinder.conf DEFAULT sql_connection "$DB://cinder:${mpw}@${IP}/cinder"
+crudini --set /etc/cinder/cinder.conf DEFAULT sql_connection "$DB://cinder:${mpw}@${IP}/cinder"
 
 for m in cinder heat nova glance neutron ; do
     sed -i -e 's/%SERVICE_TENANT_NAME%/service/' \
@@ -422,7 +422,7 @@ rm -f /var/lib/keystone/keystone.sqlite # cleanup DB as devstack's script fails 
 
 KEYSTONE_CATALOG=/etc/keystone/default_catalog.templates
 sed -e "s,%SERVICE_HOST%,$SERVICE_HOST,g" -e "s/%S3_SERVICE_PORT%/8080/" $KEYSTONE_CATALOG.sample > $KEYSTONE_CATALOG
-openstack-config --set /etc/keystone/keystone.conf DEFAULT admin_token "$SERVICE_TOKEN"
+crudini --set /etc/keystone/keystone.conf DEFAULT admin_token "$SERVICE_TOKEN"
 
 # Upgrade the database to the latest schema
 run_as $KEYSTONE_SYSTEM_USER "keystone-manage --config-file=/etc/keystone/keystone.conf db_sync"
@@ -455,15 +455,15 @@ fi
 ## setup neutron configuration
 #-----------------------------------------
 
-openstack-config --set /etc/neutron/neutron.conf database connection $DB://neutron:$mpw@$IP/neutron
-openstack-config --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini SECURITYGROUP firewall_driver neutron.agent.firewall.NoopFirewallDriver
-openstack-config --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini DATABASE sql_connection $DB://neutron:$mpw@$IP/neutron
-openstack-config --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini LINUX_BRIDGE physical_interface_mappings root-bridge:vefq,physnet1:eth0
-openstack-config --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini VLANS network_vlan_ranges root-bridge,physnet1
+crudini --set /etc/neutron/neutron.conf database connection $DB://neutron:$mpw@$IP/neutron
+crudini --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini SECURITYGROUP firewall_driver neutron.agent.firewall.NoopFirewallDriver
+crudini --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini DATABASE sql_connection $DB://neutron:$mpw@$IP/neutron
+crudini --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini LINUX_BRIDGE physical_interface_mappings root-bridge:vefq,physnet1:eth0
+crudini --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini VLANS network_vlan_ranges root-bridge,physnet1
 # TODO: should be default openstack-neutron-l3-agent package
-openstack-config --set /etc/neutron/l3_agent.ini DEFAULT external_network_bridge ""
+crudini --set /etc/neutron/l3_agent.ini DEFAULT external_network_bridge ""
 ### turnof namespace to allow connecting to VMs from demo admin node (simple setup for demo purposes only)
-openstack-config --set /etc/neutron/dhcp_agent.ini DEFAULT use_namespaces False
+crudini --set /etc/neutron/dhcp_agent.ini DEFAULT use_namespaces False
 ### start neutron api
 start_and_enable_service rabbitmq-server
 
@@ -528,7 +528,7 @@ done
 ## setup heat configuration
 #-----------------------------------------
 
-openstack-config --set /etc/heat/heat.conf DEFAULT sql_connection $DB://heat:$mpw@$IP/heat
+crudini --set /etc/heat/heat.conf DEFAULT sql_connection $DB://heat:$mpw@$IP/heat
 
 for s in openstack-heat-engine openstack-heat-api-cfn openstack-heat-api; do
     start_and_enable_service $s
@@ -566,15 +566,15 @@ nova secgroup-list-rules default # lists the rules
 #-----------------------------------------
 
 if [ "x$with_tempest" = "xyes" -a -e /etc/tempest/tempest.conf ]; then
-    openstack-config --set /etc/tempest/tempest.conf  identity uri $KEYSTONE_PUBLIC_ENDPOINT
-    openstack-config --set /etc/tempest/tempest.conf  identity admin_username admin
-    openstack-config --set /etc/tempest/tempest.conf  identity admin_password $pw
-    openstack-config --set /etc/tempest/tempest.conf  identity alt_password $pw
-    openstack-config --set /etc/tempest/tempest.conf  identity password $pw
-    openstack-config --set /etc/tempest/tempest.conf  network public_network_id $ext_network_id
-    openstack-config --set /etc/tempest/tempest.conf  network public_router_id $ext_router_id
-    openstack-config --set /etc/tempest/tempest.conf service_available neutron True
-    openstack-config --set /etc/tempest/tempest.conf service_available swift False
-    openstack-config --set /etc/tempest/tempest.conf stress max_instances 2
-    openstack-config --set /etc/tempest/tempest.conf service_available horizon $with_horizon
+    crudini --set /etc/tempest/tempest.conf  identity uri $KEYSTONE_PUBLIC_ENDPOINT
+    crudini --set /etc/tempest/tempest.conf  identity admin_username admin
+    crudini --set /etc/tempest/tempest.conf  identity admin_password $pw
+    crudini --set /etc/tempest/tempest.conf  identity alt_password $pw
+    crudini --set /etc/tempest/tempest.conf  identity password $pw
+    crudini --set /etc/tempest/tempest.conf  network public_network_id $ext_network_id
+    crudini --set /etc/tempest/tempest.conf  network public_router_id $ext_router_id
+    crudini --set /etc/tempest/tempest.conf service_available neutron True
+    crudini --set /etc/tempest/tempest.conf service_available swift False
+    crudini --set /etc/tempest/tempest.conf stress max_instances 2
+    crudini --set /etc/tempest/tempest.conf service_available horizon $with_horizon
 fi
