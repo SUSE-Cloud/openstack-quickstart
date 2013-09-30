@@ -451,7 +451,7 @@ ifup $ext_bridge_name
 #---------------------------------------
 
 # start services
-for s in ntp libvirtd $DB iscsitarget open-iscsi tgtd memcached apache2 openstack-nova-api openstack-nova-conductor openstack-nova-scheduler openstack-nova-compute openstack-nova-vncproxy openstack-glance-api openstack-glance-registry openstack-keystone openstack-nova-consoleauth openstack-novncproxy openstack-quantum-linuxbridge-agent openstack-quantum-dhcp-agent openstack-quantum-l3-agent openstack-quantum-metadata-agent
+for s in ntp libvirtd $DB open-iscsi tgtd memcached apache2 openstack-nova-api openstack-nova-conductor openstack-nova-scheduler openstack-nova-compute openstack-nova-vncproxy openstack-glance-api openstack-glance-registry openstack-keystone openstack-nova-consoleauth openstack-novncproxy openstack-quantum-linuxbridge-agent openstack-quantum-dhcp-agent openstack-quantum-l3-agent openstack-quantum-metadata-agent
 do
     start_and_enable_service $s
 done
