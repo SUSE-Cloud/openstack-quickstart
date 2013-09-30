@@ -119,7 +119,20 @@ if [[ "$ENABLED_SERVICES" =~ "n-cpu" ]]; then
             --publicurl "http://$SERVICE_HOST:\$(compute_port)s/v2/\$(tenant_id)s" \
             --adminurl "http://$SERVICE_HOST:\$(compute_port)s/v2/\$(tenant_id)s" \
             --internalurl "http://$SERVICE_HOST:\$(compute_port)s/v2/\$(tenant_id)s"
+
+        # Create Nova V3 Services
+        NOVA_V3_SERVICE=$(get_id keystone service-create \
+            --name=nova \
+            --type=computev3 \
+            --description="Nova Compute Service V3")
+        keystone endpoint-create \
+            --region RegionOne \
+            --service_id $NOVA_V3_SERVICE \
+            --publicurl "http://$SERVICE_HOST:9696/v3" \
+            --adminurl "http://$SERVICE_HOST:9696/v3" \
+            --internalurl "http://$SERVICE_HOST:9696/v3"
     fi
+
     # Nova needs ResellerAdmin role to download images when accessing
     # swift through the s3 api. The admin role in swift allows a user
     # to act as an admin for their tenant, but ResellerAdmin is needed
@@ -311,6 +324,19 @@ if [[ "$ENABLED_SERVICES" =~ "c-api" ]]; then
             --publicurl "http://$SERVICE_HOST:8776/v1/\$(tenant_id)s" \
             --adminurl "http://$SERVICE_HOST:8776/v1/\$(tenant_id)s" \
             --internalurl "http://$SERVICE_HOST:8776/v1/\$(tenant_id)s"
+
+
+        # Create Cinder V2 API
+        CINDER_V2_SERVICE=$(get_id keystone service-create \
+                        --name=cinder \
+                        --type=volumev2 \
+                        --description="Cinder Volume Service V2")
+        keystone endpoint-create \
+                        --region RegionOne \
+                        --service_id $CINDER_V2_SERVICE \
+                        --publicurl "http://$SERVICE_HOST:8776/v2/\$(tenant_id)s" \
+                        --adminurl "http://$SERVICE_HOST:8776/v2/\$(tenant_id)s" \
+                        --internalurl "http://$SERVICE_HOST:8776/v2/\$(tenant_id)s"
     fi
 fi
 
