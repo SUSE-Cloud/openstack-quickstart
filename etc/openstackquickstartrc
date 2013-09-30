@@ -15,7 +15,7 @@ IP=127.0.0.1
 testnet=10.10.134.16/29
 
 # floating ip address, should not be a part of your network
-floatingnet=172.31.0.0/29
+floatingnet=172.31.0.0/24
 
 # this defines which database to use
 #DB=mysql
