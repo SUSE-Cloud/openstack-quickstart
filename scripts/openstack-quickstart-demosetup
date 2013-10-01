@@ -342,6 +342,7 @@ KEYSTONE_AUTH_PORT=${KEYSTONE_AUTH_PORT:-35357}
 KEYSTONE_SERVICE_PORT=${KEYSTONE_AUTH_PORT:-5000}
 KEYSTONE_AUTH_PROTOCOL=${KEYSTONE_AUTH_PROTOCOL:-http}
 KEYSTONE_PUBLIC_ENDPOINT=$KEYSTONE_AUTH_PROTOCOL://$KEYSTONE_AUTH_HOST:$KEYSTONE_SERVICE_PORT/v2.0
+KEYSTONE_PUBLIC_ENDPOINT_V3=$KEYSTONE_AUTH_PROTOCOL://$KEYSTONE_AUTH_HOST:$KEYSTONE_SERVICE_PORT/v3
 
 #-----------------------------------------
 # setup keystone client endpoint configuration
@@ -566,13 +567,14 @@ nova secgroup-list-rules default # lists the rules
 #-----------------------------------------
 
 if [ "x$with_tempest" = "xyes" -a -e /etc/tempest/tempest.conf ]; then
-    crudini --set /etc/tempest/tempest.conf  identity uri $KEYSTONE_PUBLIC_ENDPOINT
-    crudini --set /etc/tempest/tempest.conf  identity admin_username admin
-    crudini --set /etc/tempest/tempest.conf  identity admin_password $pw
-    crudini --set /etc/tempest/tempest.conf  identity alt_password $pw
-    crudini --set /etc/tempest/tempest.conf  identity password $pw
-    crudini --set /etc/tempest/tempest.conf  network public_network_id $ext_network_id
-    crudini --set /etc/tempest/tempest.conf  network public_router_id $ext_router_id
+    crudini --set /etc/tempest/tempest.conf identity uri $KEYSTONE_PUBLIC_ENDPOINT
+    crudini --set /etc/tempest/tempest.conf identity uri_v3 $KEYSTONE_PUBLIC_ENDPOINT_V3
+    crudini --set /etc/tempest/tempest.conf identity admin_username admin
+    crudini --set /etc/tempest/tempest.conf identity admin_password $pw
+    crudini --set /etc/tempest/tempest.conf identity alt_password $pw
+    crudini --set /etc/tempest/tempest.conf identity password $pw
+    crudini --set /etc/tempest/tempest.conf network public_network_id $ext_network_id
+    crudini --set /etc/tempest/tempest.conf network public_router_id $ext_router_id
     crudini --set /etc/tempest/tempest.conf service_available neutron True
     crudini --set /etc/tempest/tempest.conf service_available swift False
     crudini --set /etc/tempest/tempest.conf stress max_instances 2
