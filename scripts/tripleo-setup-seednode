@@ -265,7 +265,7 @@ crudini --set $c DEFAULT reserved_host_memory_mb '0'
 
 # Enable baremetal related services
 mkdir -p /srv/tftpboot/pxelinux.cfg/
-cp /usr/share/syslinux/pxelinux.0
+cp /usr/share/syslinux/pxelinux.0 /srv/tftpboot/
 chown -R openstack-nova /srv/tftpboot
 
 dnsmasq --conf-file= --port=0 --enable-tftp --tftp-root=/srv/tftpboot \
