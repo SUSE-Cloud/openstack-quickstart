@@ -241,6 +241,7 @@ c=/etc/nova/nova.conf
 
 crudini --set $c baremetal arch 'x86_64'
 crudini --set $c baremetal power_manager 'nova.virt.baremetal.virtual_power_driver.VirtualPowerManager'
+#crudini --set $c baremetal power_manager 'nova.virt.baremetal.fake.FakePowerManager'
 crudini --set $c baremetal virtual_power_host_user 'stack'
 crudini --set $c baremetal virtual_power_host_key '/opt/stack/boot-stack/virtual-power-key'
 crudini --set $c baremetal virtual_power_ssh_host '192.168.122.1'
@@ -266,6 +267,10 @@ crudini --set $c DEFAULT reserved_host_memory_mb '0'
 chkconfig -s tftp on
 rcdnsmasq restart
 rcxinetd restart
+
+mkdir -p /srv/tftpboot
+chown openstack-nova !$
+chmod 0700 !$
 
 # baremetal driver is used
 su openstack-nova -s /bin/sh -c "nova-baremetal-manage db sync"
