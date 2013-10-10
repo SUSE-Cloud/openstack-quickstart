@@ -205,6 +205,7 @@ c=/etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini
 crudini --set $c vlans tenant_network_type 'vlan'
 crudini --set $c vlans network_vlan_ranges 'ctlplane:1000:2000'
 crudini --set $c linux_bridge physical_interface_mappings 'ctlplane:eth1'
+crudini --set $c securitygroup firewall_driver 'neutron.agent.linux.iptables_firewall.IptablesFirewallDriver'
 
 rcopenstack-neutron restart
 
@@ -244,6 +245,7 @@ crudini --set $c baremetal driver 'nova.virt.baremetal.pxe.PXE'
 crudini --set $c baremetal instance_type_extra_specs  'cpu_arch:x86_64'
 crudini --set $c baremetal sql_connection 'sqlite:////var/lib/nova/nova_bm.sqlite'
 
+crudini --set $c DEFAULT host 'seed'
 crudini --set $c DEFAULT neutron_admin_password 'unset'
 crudini --set $c DEFAULT neutron_admin_tenant_name 'service'
 crudini --set $c DEFAULT metadata-proxy 'false'
