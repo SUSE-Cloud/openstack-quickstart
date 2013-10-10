@@ -264,12 +264,17 @@ crudini --set $c DEFAULT ram_allocation_ratio '1.0'
 crudini --set $c DEFAULT reserved_host_memory_mb '0'
 
 # Enable baremetal related services
-chkconfig -s tftp on
-rcdnsmasq restart
-rcxinetd restart
+#chkconfig -s tftp on
+#rcdnsmasq restart
+#rcxinetd restart
 
 mkdir -p /srv/tftpboot/pxelinux.cfg/
+cp /usr/share/syslinux/pxelinux.0
 chown -R openstack-nova /srv/tftpboot
+
+dnsmasq --conf-file= --port=0 --enable-tftp --tftp-root=/tftpboot \
+    --dhcp-boot=pxelinux.0 --bind-interfaces --pid-file=/var/run/dnsmasq.pid \
+    --interface=eth1 --dhcp-range=192.0.2.10,192.0.2.20
 
 # baremetal driver is used
 su openstack-nova -s /bin/sh -c "nova-baremetal-manage db sync"
