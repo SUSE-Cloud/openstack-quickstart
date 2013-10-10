@@ -249,6 +249,8 @@ crudini --set $c DEFAULT scheduler_host_manager 'nova.scheduler.baremetal_host_m
 su openstack-nova -s /bin/sh -c "nova-baremetal-manage db sync"
 
 rcopenstack-nova-api restart
+rcopenstack-nova-scheduler restart
+rcopenstack-nova-conductor restart
 rcopenstack-nova-compute restart
 
 for i in $(seq 1 10); do
