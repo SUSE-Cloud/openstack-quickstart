@@ -268,9 +268,8 @@ chkconfig -s tftp on
 rcdnsmasq restart
 rcxinetd restart
 
-mkdir -p /srv/tftpboot
-chown openstack-nova !$
-chmod 0700 !$
+mkdir -p /srv/tftpboot/pxelinux.cfg/
+chown -R openstack-nova /srv/tftpboot
 
 # baremetal driver is used
 su openstack-nova -s /bin/sh -c "nova-baremetal-manage db sync"
