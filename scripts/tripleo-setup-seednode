@@ -244,6 +244,8 @@ crudini --set $c baremetal driver 'nova.virt.baremetal.pxe.PXE'
 crudini --set $c baremetal instance_type_extra_specs  'cpu_arch:x86_64'
 crudini --set $c baremetal sql_connection 'sqlite:////var/lib/nova/nova_bm.sqlite'
 
+crudini --set $c DEFAULT neutron_admin_password 'unset'
+crudini --set $c DEFAULT neutron_admin_tenant_name 'service'
 crudini --set $c DEFAULT metadata-proxy 'false'
 crudini --set $c DEFAULT service-password 'unset'
 crudini --set $c DEFAULT compute_driver 'baremetal.driver.BareMetalDriver'
