@@ -254,6 +254,8 @@ crudini --set $c DEFAULT compute_driver 'baremetal.driver.BareMetalDriver'
 crudini --set $c DEFAULT my_ip '192.0.2.1'
 crudini --set $c DEFAULT firewall_driver 'nova.virt.firewall.NoopFirewallDriver'
 crudini --set $c DEFAULT scheduler_host_manager 'nova.scheduler.baremetal_host_manager.BaremetalHostManager'
+crudini --set $c DEFAULT ram_allocation_ratio '1.0'
+crudini --set $c DEFAULT reserved_host_memory_mb '0'
 
 # baremetal driver is used
 su openstack-nova -s /bin/sh -c "nova-baremetal-manage db sync"
