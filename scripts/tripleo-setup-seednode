@@ -189,6 +189,12 @@ done
 rcopenstack-glance-api restart
 rcopenstack-glance-registry restart
 
+KERNEL=/root/tripleo-deploy.x86_64-1.12.1.kernel.3.0.76-0.11-default
+RAMDISK=/root/tripleo-deploy.x86_64-1.12.1.gz
+deploy_kernel_id=$(glance image-create --name bm-vmlinuz --public --disk-format aki < $KERNEL \
+                | grep ' id ' | awk '{print $4}')
+deploy_ramdisk_id=$(glance image-create --name bm-initrd --public --disk-format ari < $RAMDISK \
+                | grep ' id ' | awk '{print $4}')
 
 ## -------------------------------------------------------------------------------
 ## setup neutron
@@ -277,7 +283,7 @@ ARCH='amd64'
 
 nova flavor-create baremetal auto $MEM $DISK $CPU
 nova flavor-key baremetal set "cpu_arch"="$ARCH" \
-    "baremetal:deploy_kernel_id"="$deploy_kernel_id"
+    "baremetal:deploy_kernel_id"="$deploy_kernel_id" \
     "baremetal:deploy_ramdisk_id"="$deploy_ramdisk_id"
 
 ## -------------------------------------------------------------------------------
