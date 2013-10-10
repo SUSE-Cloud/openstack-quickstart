@@ -196,6 +196,10 @@ deploy_kernel_id=$(glance image-create --name bm-vmlinuz --public --disk-format 
 deploy_ramdisk_id=$(glance image-create --name bm-initrd --public --disk-format ari < $RAMDISK \
                 | grep ' id ' | awk '{print $4}')
 
+qemu-img create -f qcow2  /root/undercloud.qcow2 10G
+
+
+
 ## -------------------------------------------------------------------------------
 ## setup neutron
 ## -------------------------------------------------------------------------------
@@ -293,10 +297,14 @@ DISK=20
 CPU=1
 ARCH='x86_64'
 
-nova flavor-create baremetal auto $MEM $DISK $CPU
+nova flavor-create baremetal auto $(($MEM/4)) $(($DISK/4)) $CPU
 nova flavor-key baremetal set "cpu_arch"="$ARCH" \
     "baremetal:deploy_kernel_id"="$deploy_kernel_id" \
     "baremetal:deploy_ramdisk_id"="$deploy_ramdisk_id"
+
+glance image-create --name undercloud --public --disk-format qcow2 \
+    --container-format bare --property kernel_id="$deploy_kernel_id" \
+    --property ramdisk_id="$deploy_ramdisk_id" --file /root/undercloud.qcow2
 
 ## -------------------------------------------------------------------------------
 ## setup-neutron 192.0.2.2 192.0.2.3 192.0.2.0/24 192.0.2.1 ctlplane
