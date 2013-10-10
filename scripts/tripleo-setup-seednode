@@ -264,10 +264,6 @@ crudini --set $c DEFAULT ram_allocation_ratio '1.0'
 crudini --set $c DEFAULT reserved_host_memory_mb '0'
 
 # Enable baremetal related services
-#chkconfig -s tftp on
-#rcdnsmasq restart
-#rcxinetd restart
-
 mkdir -p /srv/tftpboot/pxelinux.cfg/
 cp /usr/share/syslinux/pxelinux.0
 chown -R openstack-nova /srv/tftpboot
