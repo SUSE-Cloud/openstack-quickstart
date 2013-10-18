@@ -196,8 +196,9 @@ deploy_kernel_id=$(glance image-create --name bm-vmlinuz --public --disk-format 
 deploy_ramdisk_id=$(glance image-create --name bm-initrd --public --disk-format ari < $RAMDISK \
                 | grep ' id ' | awk '{print $4}')
 
-qemu-img create -f qcow2  /root/undercloud.qcow2 10G
-
+if [ ! -e /root/undercloud.qcow2 ]; then
+    qemu-img create -f qcow2  /root/undercloud.qcow2 10G
+fi
 
 
 ## -------------------------------------------------------------------------------
@@ -278,6 +279,7 @@ su openstack-nova -s /bin/sh -c "nova-baremetal-manage db sync"
 rcopenstack-nova-api restart
 rcopenstack-nova-scheduler restart
 rcopenstack-nova-conductor restart
+rcopenstack-nova-baremetal-deploy-helper restart
 rcopenstack-nova-compute restart
 
 for i in $(seq 1 10); do
