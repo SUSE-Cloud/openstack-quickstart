@@ -50,7 +50,9 @@ function start_and_enable_service () {
         fi
         $i status
         if [ $? -eq 3 ]; then
-            journalctl -xn || :
+            if [ -n "$(type -p systemctl)" ]; then
+                journalctl -xn || :
+            fi
             echo "Service $1 is not running"
             exit 1
         fi
