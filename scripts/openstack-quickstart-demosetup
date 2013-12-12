@@ -223,7 +223,7 @@ grep -q -e vmx -e svm /proc/cpuinfo || MODE=lxc
 # use lxc or qemu, if kvm is unavailable
 if rpm -q openstack-nova-compute >/dev/null ; then
     if [ "$MODE" = lxc ] ; then
-        crudini --set /etc/nova/nova.conf DEFAULT virt_type lxc
+        crudini --set /etc/nova/nova.conf libvirt virt_type lxc
         install_packages lxc
         # not sure what this is good for, cgroups is and should be mounted under /sys/fs/cgroup
         #echo mount -t cgroup none /cgroup >> /etc/init.d/boot.local
