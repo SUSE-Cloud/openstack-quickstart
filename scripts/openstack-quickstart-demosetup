@@ -550,6 +550,10 @@ if [ "$?" -ne "0" ]; then
     done
 else
     grep -q openstack-loopback-lvm /etc/init.d/boot.local || echo $openstack_loopback_lvm >> /etc/init.d/boot.local
+    # SLE11 and other old distros need boot.lvm enabled
+    if [ -z "$(type -p systemctl)" ]; then
+        start_and_enable_service boot.lvm
+    fi
     start_and_enable_service openstack-cinder-volume
     start_and_enable_service openstack-cinder-scheduler
     start_and_enable_service openstack-cinder-api
