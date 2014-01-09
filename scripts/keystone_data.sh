@@ -340,3 +340,31 @@ if [[ "$ENABLED_SERVICES" =~ "c-api" ]]; then
     fi
 fi
 
+# Ceilometer
+if [[ "$ENABLED_SERVICES" =~ "ceilometer-api" ]]; then
+    CEILOMETER_SERVICE_PROTOCOL=http
+    CEILOMETER_SERVICE_HOST=$SERVICE_HOST
+    CEILOMETER_SERVICE_PORT=${CEILOMETER_SERVICE_PORT:-8777}
+
+    CEILOMETER_USER=$(get_id keystone user-create \
+        --name=ceilometer \
+        --pass="$SERVICE_PASSWORD" \
+        --tenant-id $SERVICE_TENANT \
+        --email=ceilometer@example.com)
+    keystone user-role-add \
+        --tenant-id $SERVICE_TENANT \
+        --user-id $CEILOMETER_USER \
+        --role-id $ADMIN_ROLE
+    if [[ "$KEYSTONE_CATALOG_BACKEND" = 'sql' ]]; then
+        CEILOMETER_SERVICE=$(get_id keystone service-create \
+            --name=ceilometer \
+            --type=metering \
+            --description="OpenStack Telemetry Service")
+        keystone endpoint-create \
+            --region RegionOne \
+            --service_id $CEILOMETER_SERVICE \
+            --publicurl "$CEILOMETER_SERVICE_PROTOCOL://$CEILOMETER_SERVICE_HOST:$CEILOMETER_SERVICE_PORT/" \
+            --adminurl "$CEILOMETER_SERVICE_PROTOCOL://$CEILOMETER_SERVICE_HOST:$CEILOMETER_SERVICE_PORT/" \
+            --internalurl "$CEILOMETER_SERVICE_PROTOCOL://$CEILOMETER_SERVICE_HOST:$CEILOMETER_SERVICE_PORT/"
+    fi
+fi
