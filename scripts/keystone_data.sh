@@ -163,6 +163,9 @@ fi
 
 # Heat
 if [[ "$ENABLED_SERVICES" =~ "heat" ]]; then
+    HEAT_API_CFN_PORT=${HEAT_API_CFN_PORT:-8000}
+    HEAT_API_PORT=${HEAT_API_PORT:-8004}
+
     HEAT_USER=$(get_id keystone user-create --name=heat \
                                               --pass="$SERVICE_PASSWORD" \
                                               --tenant-id $SERVICE_TENANT \
@@ -170,17 +173,33 @@ if [[ "$ENABLED_SERVICES" =~ "heat" ]]; then
     keystone user-role-add --tenant-id $SERVICE_TENANT \
                            --user-id $HEAT_USER \
                            --role-id $ADMIN_ROLE
+    # heat_stack_user role is for users created by Heat
+    keystone role-create --name heat_stack_user
+
     if [[ "$KEYSTONE_CATALOG_BACKEND" = 'sql' ]]; then
         HEAT_CFN_SERVICE=$(get_id keystone service-create \
-            --name=heat \
-            --type=orchestration \
-            --description="Heat Service")
+            --name=heat-cfn \
+            --type=cloudformation \
+            --description="Heat CloudFormation Service")
+
         keystone endpoint-create \
             --region RegionOne \
             --service_id $HEAT_CFN_SERVICE \
             --publicurl "http://$SERVICE_HOST:$HEAT_API_CFN_PORT/v1" \
             --adminurl "http://$SERVICE_HOST:$HEAT_API_CFN_PORT/v1" \
             --internalurl "http://$SERVICE_HOST:$HEAT_API_CFN_PORT/v1"
+
+        HEAT_SERVICE=$(get_id keystone service-create \
+            --name=heat \
+            --type=orchestration \
+            --description="Heat Service")
+
+        keystone endpoint-create \
+            --region RegionOne \
+            --service_id $HEAT_SERVICE \
+            --publicurl "http://$SERVICE_HOST:$HEAT_API_PORT/v1/\$(tenant_id)s" \
+            --adminurl "http://$SERVICE_HOST:$HEAT_API_PORT/v1/\$(tenant_id)s" \
+            --internalurl "http://$SERVICE_HOST:$HEAT_API_PORT/v1/\$(tenant_id)s"
     fi
 fi
 
