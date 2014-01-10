@@ -381,7 +381,7 @@ crudini --set /etc/nova/nova.conf DEFAULT novncproxy_base_url "http://$IP:6080/v
 # TODO: neutron security group is broken for network shared beetwen
 # multiple tenants https://bugs.launchpad.net/neutron/+bug/1171997
 # we revert to nova one
-crudini --set /etc/nova/nova.conf DEFAULT security_group_api nova
+crudini --set /etc/nova/nova.conf DEFAULT security_group_api neutron
 crudini --set /etc/nova/nova.conf DEFAULT allow_resize_to_same_host True
 
 extensions_path=$(ls -d /usr/lib*/python*/site-packages/extensions 2> /dev/null | head -n 1)
@@ -459,10 +459,9 @@ fi
 #-----------------------------------------
 
 crudini --set /etc/neutron/neutron.conf database connection $DB://neutron:$mpw@$IP/neutron
-crudini --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini SECURITYGROUP firewall_driver neutron.agent.firewall.NoopFirewallDriver
-crudini --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini DATABASE sql_connection $DB://neutron:$mpw@$IP/neutron
-crudini --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini LINUX_BRIDGE physical_interface_mappings root-bridge:vefq,physnet1:eth0
-crudini --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini VLANS network_vlan_ranges root-bridge,physnet1
+crudini --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini securitygroup firewall_driver neutron.agent.linux.iptables_firewall.IptablesFirewallDriver
+crudini --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini linux_bridge physical_interface_mappings root-bridge:vefq,physnet1:eth0
+crudini --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini vlans network_vlan_ranges root-bridge,physnet1
 # TODO: should be default openstack-neutron-l3-agent package
 crudini --set /etc/neutron/l3_agent.ini DEFAULT external_network_bridge ""
 ### turnof namespace to allow connecting to VMs from demo admin node (simple setup for demo purposes only)
