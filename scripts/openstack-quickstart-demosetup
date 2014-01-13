@@ -255,6 +255,8 @@ else
 fi
 echo 1 > /proc/sys/net/ipv4/ip_forward
 
+set -e
+
 # configure bridge
 if [ ! -e /etc/sysconfig/network/ifcfg-$br ] ; then
     echo "net.ipv4.conf.all.proxy_arp = 1" >> /etc/sysctl.conf
@@ -455,15 +457,13 @@ fi
 #-----------------------------------------
 
 crudini --set /etc/neutron/neutron.conf database connection $DB://neutron:$mpw@$IP/neutron
-crudini --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini SECURITYGROUP firewall_driver neutron.agent.firewall.NoopFirewallDriver
-crudini --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini DATABASE sql_connection $DB://neutron:$mpw@$IP/neutron
-crudini --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini LINUX_BRIDGE physical_interface_mappings root-bridge:vefq,physnet1:eth0
-crudini --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini VLANS network_vlan_ranges root-bridge,physnet1
-# TODO: should be default openstack-neutron-l3-agent package
-crudini --set /etc/neutron/l3_agent.ini DEFAULT external_network_bridge ""
+
+crudini --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini linux_bridge physical_interface_mappings root-bridge:vefq,physnet1:eth0
+crudini --set /etc/neutron/plugins/ml2/ml2_conf.ini ml2 tenant_network_types vlan
+crudini --set /etc/neutron/plugins/ml2/ml2_conf.ini ml2_type_vlan network_vlan_ranges root-bridge,physnet1
 ### turnof namespace to allow connecting to VMs from demo admin node (simple setup for demo purposes only)
 crudini --set /etc/neutron/dhcp_agent.ini DEFAULT use_namespaces False
-### start neutron api
+
 start_and_enable_service rabbitmq-server
 
 # Start Keystone and Neutron
