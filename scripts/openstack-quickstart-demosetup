@@ -574,6 +574,7 @@ if [ "x$with_tempest" = "xyes" -a -e /etc/tempest/tempest.conf ]; then
     crudini --set /etc/tempest/tempest.conf identity admin_password $pw
     crudini --set /etc/tempest/tempest.conf identity alt_password $pw
     crudini --set /etc/tempest/tempest.conf identity password $pw
+    crudini --set /etc/tempest/tempest.conf compute-admin password $pw
     crudini --set /etc/tempest/tempest.conf network public_network_id $ext_network_id
     crudini --set /etc/tempest/tempest.conf network public_router_id $ext_router_id
     crudini --set /etc/tempest/tempest.conf service_available neutron True
