@@ -128,9 +128,9 @@ if [[ "$ENABLED_SERVICES" =~ "n-cpu" ]]; then
         keystone endpoint-create \
             --region RegionOne \
             --service_id $NOVA_V3_SERVICE \
-            --publicurl "http://$SERVICE_HOST:9696/v3" \
-            --adminurl "http://$SERVICE_HOST:9696/v3" \
-            --internalurl "http://$SERVICE_HOST:9696/v3"
+            --publicurl "http://$SERVICE_HOST:8774/v3" \
+            --adminurl "http://$SERVICE_HOST:8774/v3" \
+            --internalurl "http://$SERVICE_HOST:8774/v3"
     fi
 
     # Nova needs ResellerAdmin role to download images when accessing
