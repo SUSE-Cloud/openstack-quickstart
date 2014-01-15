@@ -9,12 +9,6 @@ cd /
 ADMIN_PASSWORD=$pw
 SERVICE_HOST=$IP
 
-KEYSTONE_SYSTEM_USER=openstack-keystone
-GLANCE_SYSTEM_USER=openstack-glance
-CINDER_SYSTEM_USER=openstack-cinder
-NEUTRON_SYTEM_USER=openstack-neutron
-NOVA_SYSTEM_USER=openstack-nova
-
 echo "Setting up OpenStack demo controller..."
 
 function install_packages () {
@@ -368,15 +362,13 @@ done
 #-----------------------------------------
 
 sed -i "s%sql_connection =.*%sql_connection = $DB://glance:$mpw@$IP/glance%" /etc/glance/glance-registry.conf /etc/glance/glance-api.conf # db_sync is broken for postgresql
-#sed -i 's%sql_connection =.*%sql_connection = sqlite:////var/lib/glance/glance.sqlite%' /etc/glance/glance-registry.conf
-run_as $GLANCE_SYSTEM_USER "glance-manage db_sync"
 
 #-----------------------------------------
 ## setup nova configuration
 #-----------------------------------------
 
 # replace default IP in all configuration files
-crudini --set /etc/nova/nova.conf DEFAULT sql_connection "$DB://nova:$mpw@$IP/nova"
+crudini --set /etc/nova/nova.conf database connection "$DB://nova:$mpw@$IP/nova"
 crudini --set /etc/nova/nova.conf DEFAULT glance_api_servers "$IP:9292"
 crudini --set /etc/nova/nova.conf DEFAULT novncproxy_base_url "http://$IP:6080/vnc_auto.html"
 crudini --set /etc/nova/nova.conf DEFAULT allow_resize_to_same_host True
@@ -398,33 +390,12 @@ for m in cinder heat nova glance neutron ; do
 done
 
 
-run_as $CINDER_SYSTEM_USER "cinder-manage db sync"
-run_as $NOVA_SYSTEM_USER "nova-manage db sync"
-# optional - makes life better with little RAM
-if [ "$DB" = "postgresql" ] ; then
-    echo "
-    update instance_types set memory_mb=3072 where name='m1.medium';
-    update instance_types set memory_mb=4096 where name='m1.large';
-    update instance_types set memory_mb=5120 where name='m1.xlarge';
-    " | sudo -u postgres psql -d nova
-else
-    echo "
-    use nova;
-    update instance_types set memory_mb=3072 where name='m1.medium';
-    update instance_types set memory_mb=4096 where name='m1.large';
-    update instance_types set memory_mb=5120 where name='m1.xlarge';
-    " | mysql -u root $pwquery
-fi
-
 # keystone demo setup, based on devstack.sh
 
 sed -i -e 's/kvs/sql/' -e "s,^.*connection =.*,connection = $DB://keystone:$mpw@$IP/keystone," /etc/keystone/keystone.conf
 rm -f /var/lib/keystone/keystone.sqlite # cleanup DB as devstack's script fails otherwise
 
 crudini --set /etc/keystone/keystone.conf DEFAULT admin_token "$SERVICE_TOKEN"
-
-# Upgrade the database to the latest schema
-run_as $KEYSTONE_SYSTEM_USER "keystone-manage --config-file=/etc/keystone/keystone.conf db_sync"
 
 /etc/init.d/openstack-keystone restart
 keystone_data=/usr/lib/devstack/keystone_data.sh
