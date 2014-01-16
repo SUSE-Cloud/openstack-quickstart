@@ -439,6 +439,10 @@ crudini --set /etc/neutron/plugins/ml2/ml2_conf.ini ml2_type_vlan network_vlan_r
 crudini --set /etc/neutron/dhcp_agent.ini DEFAULT use_namespaces false
 crudini --set /etc/neutron/neutron.conf DEFAULT allow_overlapping_ips true
 
+if [ "x$with_tempest" = "xyes" ]; then
+    crudini --set /etc/neutron/neutron.conf DEFAULT service_plugins "neutron.services.loadbalancer.plugin.LoadBalancerPlugin, neutron.services.l3_router.l3_router_plugin.L3RouterPlugin, neutron.services.vpn.plugin.VPNDriverPlugin"
+fi
+
 start_and_enable_service rabbitmq-server
 
 # Start Keystone and Neutron
