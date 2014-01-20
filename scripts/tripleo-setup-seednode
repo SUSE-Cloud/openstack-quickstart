@@ -10,7 +10,6 @@ PASSWORD="unset"
 SERVICE_TOKEN="unset"
 ENDPOINT="192.0.2.1"
 ADMIN_EMAIL="admin@example.com"
-HOST="root@192.0.2.1"
 DEBUG=""
 
 # Functions
@@ -83,12 +82,6 @@ export SERVICE_ENDPOINT=http://$ENDPOINT:35357/v2.0
 export SERVICE_TOKEN
 
 keystone-manage pki_setup --keystone-user openstack-keystone --keystone-group openstack-keystone
-if ! [ -e /etc/keystone/default_catalog.templates ]; then
-  sed -e "s,%SERVICE_HOST%,$ENDPOINT," \
-      -e "s,%S3_SERVICE_PORT%,8080," \
-      < /etc/keystone/default_catalog.templates.sample \
-      > /etc/keystone/default_catalog.templates
-fi
 crudini --set /etc/keystone/keystone.conf DEFAULT admin_token $SERVICE_TOKEN
 rcopenstack-keystone restart
 
@@ -123,11 +116,11 @@ GLANCE_PASSWORD="unset"
 NEUTRON_PASSWORD="unset"
 NOVA_PASSWORD="unset"
 
-PASSWORD=$HEAT_PASSWORD register-endpoint "Heat Service" heat orchestration http://$HOST:8004
-PASSWORD=$NEUTRON_PASSWORD register-endpoint "Neutron Service" neutron network http://$HOST:9696
-PASSWORD=$GLANCE_PASSWORD register-endpoint "Glance Image Service" glance image http://$HOST:9292
-register-endpoint $DEBUG "EC2 Compatibility Layer" ec2 ec2 http://$HOST:8773
-PASSWORD=$NOVA_PASSWORD register-endpoint "Nova Compute Service" nova compute http://$HOST:8774
+PASSWORD=$HEAT_PASSWORD register-endpoint "Heat Service" heat orchestration http://$ENDPOINT:8004
+PASSWORD=$NEUTRON_PASSWORD register-endpoint "Neutron Service" neutron network http://$ENDPOINT:9696
+PASSWORD=$GLANCE_PASSWORD register-endpoint "Glance Image Service" glance image http://$ENDPOINT:9292
+register-endpoint $DEBUG "EC2 Compatibility Layer" ec2 ec2 http://$ENDPOINT:8773
+PASSWORD=$NOVA_PASSWORD register-endpoint "Nova Compute Service" nova compute http://$ENDPOINT:8774
 
 ## -------------------------------------------------------------------------------
 
