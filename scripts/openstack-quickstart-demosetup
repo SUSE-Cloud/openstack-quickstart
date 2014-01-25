@@ -131,8 +131,11 @@ echo "export HOST_IP=$IP
 . /etc/bash.openstackrc
 setcreds admin $pw" >> /etc/bash.bashrc.local
 
-#NOTE(saschpe): Force resolution to avoid zypper ask for user-input where 'c' (cancel) would be the default (like packages replacing one another).
-install_packages --force-resolution patterns-OpenStack-controller patterns-OpenStack-compute-node patterns-OpenStack-clients patterns-OpenStack-network-node crudini psmisc openstack-nova-objectstore
+install_packages patterns-OpenStack-controller patterns-OpenStack-compute-node patterns-OpenStack-clients patterns-OpenStack-network-node crudini psmisc
+
+if [ "x$with_tempest" = "xyes" ]; then
+    install_packages openstack-nova-objectstore openstack-neutron-lbaas-agent
+fi
 
 if [ "$DB" = "postgresql" ] ; then
     if grep -q "SUSE Linux Enterprise Server 11" /etc/SuSE-release; then
@@ -457,6 +460,12 @@ for s in openstack-keystone \
 do
     start_and_enable_service $s
 done
+
+if [ "x$with_tempest" = "xyes" ]; then
+    start_and_enable_service openstack-neutron-lbaas-agent
+    crudini --set /etc/neutron/lbaas_agent.ini DEFAULT interface_driver neutron.agent.linux.interface.BridgeInterfaceDriver
+
+fi
 
 ### wait until neutron will start
 cnt=0
