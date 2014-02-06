@@ -403,7 +403,12 @@ chmod 660 /dev/kvm
 
 openstack-config  --set /etc/quantum/plugins/linuxbridge/linuxbridge_conf.ini DATABASE sql_connection $DB://quantum:$mpw@$IP/quantum
 openstack-config  --set /etc/quantum/plugins/linuxbridge/linuxbridge_conf.ini LINUX_BRIDGE physical_interface_mappings root-bridge:vefq,physnet1:eth0
+openstack-config  --set /etc/quantum/plugins/linuxbridge/linuxbridge_conf.ini SECURITYGROUP firewall_driver quantum.agent.linux.iptables_firewall.IptablesFirewallDriver
 openstack-config  --set /etc/quantum/plugins/linuxbridge/linuxbridge_conf.ini VLANS network_vlan_ranges root-bridge,physnet1
+openstack-config  --set /etc/quantum/dhcp_agent.ini DEFAULT use_namespaces true
+openstack-config  --set /etc/quantum/l3_agent.ini DEFAULT use_namespaces true
+openstack-config  --set /etc/quantum/quantum.conf DEFAULT allow_overlapping_ips true
+
 # TODO: should be default openstack-quantum-l3-agent package
 openstack-config  --set /etc/quantum/l3_agent.ini DEFAULT external_network_bridge ""
 ### turnof namespace to allow connecting to VMs from demo admin node (simple setup for demo purposes only)
