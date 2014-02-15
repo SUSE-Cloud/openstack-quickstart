@@ -269,10 +269,7 @@ perl -i.bak -pe "s,sql_connection=\w+://\w+:[^\@:]*,sql_connection=$DB://nova:$m
 #openstack-config --set /etc/nova/nova.conf DEFAULT bridge_interface "$br"
 openstack-config --set /etc/nova/nova.conf DEFAULT glance_api_servers "$IP:9292"
 openstack-config --set /etc/nova/nova.conf DEFAULT novncproxy_base_url "http://$IP:6080/vnc_auto.html"
-# TODO: quantum security group is broken for network shared beetwen
-# multiple tenants https://bugs.launchpad.net/quantum/+bug/1171997
-# we revert to nova one
-openstack-config --set /etc/nova/nova.conf DEFAULT security_group_api nova
+openstack-config --set /etc/nova/nova.conf DEFAULT firewall_driver nova.virt.firewall.NoopFirewallDriver
 openstack-config --set /etc/quantum/plugins/linuxbridge/linuxbridge_conf.ini SECURITYGROUP firewall_driver quantum.agent.firewall.NoopFirewallDriver
 # TODO: this needs to be set as a default in openstack-nova package
 #openstack-config --set /etc/nova/nova.conf DEFAULT service_quantum_metadata_proxy true
@@ -362,8 +359,8 @@ openstack-config --set /etc/keystone/keystone.conf DEFAULT admin_token "$SERVICE
 
 # Upgrade the database to the latest schema
 run_as $KEYSTONE_SYSTEM_USER "keystone-manage --config-file=/etc/keystone/keystone.conf db_sync"
+start_and_enable_service openstack-keystone
 
-/etc/init.d/openstack-keystone restart
 if [ -z $PREFIX ] ; then
 	keystone_data=/usr/lib/devstack/keystone_data.sh
 else
@@ -412,10 +409,11 @@ openstack-config  --set /etc/quantum/quantum.conf DEFAULT allow_overlapping_ips 
 # TODO: should be default openstack-quantum-l3-agent package
 openstack-config  --set /etc/quantum/l3_agent.ini DEFAULT external_network_bridge ""
 ### turnof namespace to allow connecting to VMs from demo admin node (simple setup for demo purposes only)
-openstack-config  --set /etc/quantum/dhcp_agent.ini DEFAULT use_namespaces False
+#openstack-config  --set /etc/quantum/dhcp_agent.ini DEFAULT use_namespaces False
 ### start quantum api
-start_and_enable_service rabbitmq-server
-start_and_enable_service openstack-quantum
+for i in rabbitmq-server openstack-quantum openstack-quantum-linuxbridge-agent openstack-quantum-dhcp-agent openstack-quantum-l3-agent openstack-quantum-metadata-agent; do
+    start_and_enable_service $i
+done
 . /etc/bash.bashrc.local
 ### wait until quantum will start
 cnt=0
@@ -457,7 +455,7 @@ ifup $ext_bridge_name
 #---------------------------------------
 
 # start services
-for s in ntp libvirtd $DB open-iscsi memcached apache2 openstack-nova-api openstack-nova-conductor openstack-nova-scheduler openstack-nova-compute openstack-nova-vncproxy openstack-glance-api openstack-glance-registry openstack-keystone openstack-nova-consoleauth openstack-novncproxy openstack-quantum-linuxbridge-agent openstack-quantum-dhcp-agent openstack-quantum-l3-agent openstack-quantum-metadata-agent
+for s in ntp libvirtd open-iscsi memcached apache2 openstack-nova-api openstack-nova-conductor openstack-nova-scheduler openstack-nova-compute openstack-nova-vncproxy openstack-glance-api openstack-glance-registry openstack-nova-consoleauth openstack-novncproxy
 do
     start_and_enable_service $s
 done
@@ -476,8 +474,7 @@ if [ "$?" -ne "0" ]; then
 else
     grep -q openstack-loopback-lvm /etc/init.d/boot.local || echo $openstack_loopback_lvm >> /etc/init.d/boot.local
     for s in api scheduler volume ; do
-        /etc/init.d/openstack-cinder-$s restart
-        insserv openstack-cinder-$s
+        start_and_enable_service openstack-cinder-$s
     done
 fi
 
