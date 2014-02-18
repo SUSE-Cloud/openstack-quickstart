@@ -105,27 +105,6 @@ EOF
     chmod 755 /etc/sysconfig/network/scripts/openstack-quickstart-neutron-$1
 }
 
-# iproute2 on 12.3 is broken, bnc#816215
-function update_iproute2_on_opensuse_12_3 () {
-     if grep -q 'openSUSE 12.3' /etc/SuSE-release; then
-          OUT=`zypper lr -u | grep 'http://download.opensuse.org/update/12.3/'`
-          echo $OUT | grep -q 'http://download.opensuse.org/update/12.3/'
-          if [[ $? -ne 0 ]] ; then
-               echo "Adding update repository"
-               zypper ar http://download.opensuse.org/update/12.3/ update12.3
-               # TODO: add netfilter repo until update iproute2 will not appear in update repo
-               zypper ar http://download.opensuse.org/repositories/security:/netfilter/openSUSE_12.3/ netfilter12.3
-          fi
-          echo "Updating iproute2 package"
-          zypper --gpg-auto-import-keys ref
-          zypper --gpg-auto-import-keys install -f -y iproute2
-     fi
-}
-
-
-
-update_iproute2_on_opensuse_12_3
-
 grep -q bash.openstackrc /etc/bash.bashrc.local ||\
 echo "export HOST_IP=$IP
 . /etc/bash.openstackrc
@@ -224,10 +203,6 @@ if rpm -q openstack-nova-compute >/dev/null ; then
     if [ "$MODE" = lxc ] ; then
         crudini --set /etc/nova/nova.conf libvirt virt_type lxc
         install_packages lxc
-        # not sure what this is good for, cgroups is and should be mounted under /sys/fs/cgroup
-        #echo mount -t cgroup none /cgroup >> /etc/init.d/boot.local
-        #mkdir /cgroup
-        #mount -t cgroup none /cgroup
     else
         modprobe kvm-intel ; modprobe kvm-amd
         sed -i -e 's/\(MODULES_LOADED_ON_BOOT="\)/\1kvm-intel kvm-amd\ /' /etc/sysconfig/kernel
@@ -575,7 +550,6 @@ if [ "x$with_tempest" = "xyes" -a -e /etc/tempest/tempest.conf ]; then
     crudini --set /etc/tempest/tempest.conf identity admin_password $pw
     crudini --set /etc/tempest/tempest.conf identity alt_password $pw
     crudini --set /etc/tempest/tempest.conf identity password $pw
-    #crudini --set /etc/tempest/tempest.conf compute allow_tenant_isolation true
     crudini --set /etc/tempest/tempest.conf compute allow_tenant_isolation false
     crudini --set /etc/tempest/tempest.conf compute fixed_network_name fixed
     crudini --set /etc/tempest/tempest.conf compute network_for_ssh ext
