@@ -450,10 +450,7 @@ while : ; do
 		echo "Can't reach neutron server. Exiting !!!" >&2
 		exit 1
 	fi
-        neutron net-list
-        if [[ $? -eq 0 ]] ; then
-                break
-        fi
+        neutron net-list && break
 	cnt=$(($cnt+1))
         sleep 2
 done
