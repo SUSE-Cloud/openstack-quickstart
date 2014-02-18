@@ -211,6 +211,9 @@ if rpm -q openstack-nova-compute >/dev/null ; then
     sed -i -e 's/\(MODULES_LOADED_ON_BOOT="\)/\1nbd\ /' /etc/sysconfig/kernel
 fi
 
+# modprobe for snapshot support
+modprobe dm_snapshot || :
+
 # disable firewall before playing with ip_forward stuff
 rm -f /usr/lib/python*/site-packages/nova-iptables.lock.lock # workaround bug
 rm -f /var/lock/SuSEfirewall2.booting # workaround openSUSE bug
