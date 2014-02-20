@@ -283,7 +283,7 @@ if [ "x$with_horizon" = "xyes" ]; then
     a2enmod socache_shmcb
     a2enflag SSL
 
-    DASHBOARD_LOCAL_SET=/usr/share/openstack-dashboard/openstack_dashboard/local/local_settings.py
+    DASHBOARD_LOCAL_SET=/srv/www/openstack-dashboard/openstack_dashboard/local/local_settings.py
     if grep -q "^\s*CACHE_BACKEND" $DASHBOARD_LOCAL_SET ; then
         sed -i "s|^\s*CACHE_BACKEND.*$|CACHE_BACKEND = 'memcached://127.0.0.1:11211/'|" $DASHBOARD_LOCAL_SET
     else
@@ -315,7 +315,7 @@ EODASHDB
 SESSION_COOKIE_SECURE = CSRF_COOKIE_SECURE = USE_SSL
 EOSEC
     # sync dashboard DB "after" the database is created
-    run_as wwwrun "cd /usr/share/openstack-dashboard; umask 0027; python -m 'manage' syncdb --noinput"
+    run_as wwwrun "cd /srv/www/openstack-dashboard; umask 0027; python -m 'manage' syncdb --noinput"
 fi
 
 KEYSTONE_AUTH_HOST=${KEYSTONE_AUTH_HOST:-$SERVICE_HOST}
