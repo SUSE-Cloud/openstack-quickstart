@@ -580,7 +580,8 @@ if [ "x$with_tempest" = "xyes" -a -e /etc/tempest/tempest.conf ]; then
     crudini --set $c compute allow_tenant_isolation false
     crudini --set $c compute fixed_network_name fixed
     crudini --set $c compute network_for_ssh ext
-    crudini --set $c compute run_ssh true
+    # broken in tempest testsuite on havana :/
+    crudini --set $c compute run_ssh false
     crudini --set $c compute-admin password $pw
     crudini --set $c network public_network_id $ext_network_id
     crudini --set $c network public_router_id $(get_router_id)
