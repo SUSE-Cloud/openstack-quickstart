@@ -526,9 +526,11 @@ else
         insserv boot.lvm
         /etc/init.d/boot.lvm start
     fi
-    start_and_enable_service openstack-cinder-volume
-    start_and_enable_service openstack-cinder-scheduler
     start_and_enable_service openstack-cinder-api
+    sleep 1
+    for s in scheduler volume ; do
+        start_and_enable_service openstack-cinder-$s
+    done
 fi
 
 setcreds admin $pw
