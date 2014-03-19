@@ -546,18 +546,24 @@ nova secgroup-list-rules default # lists the rules
 if [ "x$with_tempest" = "xyes" -a -e /etc/tempest/tempest.conf ]; then
     crudini --set /etc/tempest/tempest.conf identity uri $KEYSTONE_PUBLIC_ENDPOINT
     crudini --set /etc/tempest/tempest.conf identity uri_v3 $KEYSTONE_PUBLIC_ENDPOINT_V3
-    crudini --set /etc/tempest/tempest.conf identity admin_username admin
-    crudini --set /etc/tempest/tempest.conf identity admin_password $pw
+    crudini --set /etc/tempest/tempest.conf identity username demo
+    crudini --set /etc/tempest/tempest.conf identity tenant_name demo
     crudini --set /etc/tempest/tempest.conf identity alt_password $pw
     crudini --set /etc/tempest/tempest.conf identity password $pw
+    crudini --set /etc/tempest/tempest.conf identity admin_username admin
+    crudini --set /etc/tempest/tempest.conf identity admin_tenant_name admin
+    crudini --set /etc/tempest/tempest.conf identity admin_password $pw
     crudini --set /etc/tempest/tempest.conf compute allow_tenant_isolation false
     crudini --set /etc/tempest/tempest.conf compute fixed_network_name fixed
     crudini --set /etc/tempest/tempest.conf compute network_for_ssh ext
+    crudini --set /etc/tempest/tempest.conf compute-admin username admin
+    crudini --set /etc/tempest/tempest.conf compute-admin tenant_name admin
     crudini --set /etc/tempest/tempest.conf compute-admin password $pw
     crudini --set /etc/tempest/tempest.conf network public_network_id $ext_network_id
     crudini --set /etc/tempest/tempest.conf network public_router_id $(get_router_id)
     crudini --set /etc/tempest/tempest.conf service_available neutron True
     crudini --set /etc/tempest/tempest.conf service_available swift False
-    crudini --set /etc/tempest/tempest.conf stress max_instances 2
+    crudini --set /etc/tempest/tempest.conf stress max_instances 1
     crudini --set /etc/tempest/tempest.conf service_available horizon $with_horizon
+    crudini --set /etc/tempest/tempest.conf volume-feature-enabled backup false
 fi
