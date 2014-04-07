@@ -415,7 +415,17 @@ fi
 ## setup neutron configuration
 #-----------------------------------------
 
-crudini --set /etc/neutron/neutron.conf database connection $DB://neutron:$mpw@$IP/neutron
+SERVICE_TENANT_ID=`get_service_tenant_id`
+c=/etc/neutron/neutron.conf
+crudini --set $c database connection $DB://neutron:$mpw@$IP/neutron
+crudini --set $c DEFAULT allow_overlapping_ips true
+crudini --set $c DEFAULT notify_nova_on_port_status_change true
+crudini --set $c DEFAULT notify_nova_on_port_data_changes true
+crudini --set $c DEFAULT nova_url "http://$SERVICE_HOST:8774/v2"
+crudini --set $c DEFAULT nova_admin_username nova
+crudini --set $c DEFAULT nova_admin_password $ADMIN_PASSWORD
+crudini --set $c DEFAULT nova_admin_tenant_id $SERVICE_TENANT_ID
+crudini --set $c DEFAULT nova_admin_auth_url $KEYSTONE_PUBLIC_ENDPOINT
 
 crudini --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini linux_bridge physical_interface_mappings root-bridge:vefq,physnet1:eth0
 crudini --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini securitygroup firewall_driver neutron.agent.linux.iptables_firewall.IptablesFirewallDriver
@@ -459,7 +469,6 @@ while : ; do
 done
 ### create subnets
 ## fixed
-SERVICE_TENANT_ID=`get_service_tenant_id`
 neutron net-create fixed --tenant-id $SERVICE_TENANT_ID --shared --provider:network_type flat --provider:physical_network root-bridge
 neutron subnet-create --name fixed --dns-nameserver 8.8.8.8 --dns-nameserver 8.8.4.4 fixed $testnet
 neutron router-create --tenant-id $SERVICE_TENANT_ID public
