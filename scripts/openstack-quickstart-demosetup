@@ -436,7 +436,7 @@ crudini --set /etc/neutron/l3_agent.ini DEFAULT use_namespaces true
 crudini --set /etc/neutron/metadata_agent.ini DEFAULT metadata_proxy_shared_secret $metadata_secret
 
 if [ "x$with_tempest" = "xyes" ]; then
-    crudini --set /etc/neutron/neutron.conf DEFAULT service_plugins "neutron.services.loadbalancer.plugin.LoadBalancerPlugin, neutron.services.l3_router.l3_router_plugin.L3RouterPlugin, neutron.services.vpn.plugin.VPNDriverPlugin, neutron.services.metering.metering_plugin.MeteringPlugin, neutron.services.firewall.drivers.linux.iptables_fwaas.IptablesFwaasDriver"
+    crudini --set /etc/neutron/neutron.conf DEFAULT service_plugins "neutron.services.loadbalancer.plugin.LoadBalancerPlugin, neutron.services.l3_router.l3_router_plugin.L3RouterPlugin, neutron.services.vpn.plugin.VPNDriverPlugin, neutron.services.metering.metering_plugin.MeteringPlugin, neutron.services.firewall.fwaas_plugin.FirewallPlugin"
 fi
 
 start_and_enable_service rabbitmq-server
