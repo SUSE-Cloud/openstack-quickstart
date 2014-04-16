@@ -568,6 +568,10 @@ if [ "x$with_tempest" = "xyes" -a -e /etc/tempest/tempest.conf ]; then
     crudini --set /etc/tempest/tempest.conf identity admin_username admin
     crudini --set /etc/tempest/tempest.conf identity admin_tenant_name admin
     crudini --set /etc/tempest/tempest.conf identity admin_password $pw
+    crudini --set /etc/tempest/tempest.conf compute-feature-enabled change_password False
+    crudini --set /etc/tempest/tempest.conf compute-feature-enabled live_migration False
+    crudini --set /etc/tempest/tempest.conf compute-feature-enabled vnc_console true
+    crudini --set /etc/tempest/tempest.conf compute-feature-enabled resize true
     crudini --set /etc/tempest/tempest.conf compute allow_tenant_isolation false
     crudini --set /etc/tempest/tempest.conf compute fixed_network_name fixed
     crudini --set /etc/tempest/tempest.conf compute network_for_ssh ext
