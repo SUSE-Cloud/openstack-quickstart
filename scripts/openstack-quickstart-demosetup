@@ -357,6 +357,11 @@ crudini --set /etc/nova/nova.conf DEFAULT novncproxy_base_url "http://$IP:6080/v
 crudini --set /etc/nova/nova.conf DEFAULT allow_resize_to_same_host True
 crudini --set /etc/nova/nova.conf DEFAULT default_floating_pool ext
 crudini --set /etc/nova/nova.conf DEFAULT my_ip "$IP"
+crudini --set /etc/nova/nova.conf DEFAULT osapi_compute_workers "1"
+crudini --set /etc/nova/nova.conf DEFAULT ec2_workers "1"
+crudini --set /etc/nova/nova.conf DEFAULT metadata_workers "1"
+crudini --set /etc/nova/nova.conf conductor workers "1"
+
 metadata_secret=$(uuidgen)
 crudini --set /etc/nova/nova.conf DEFAULT neutron_metadata_proxy_shared_secret $metadata_secret
 
