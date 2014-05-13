@@ -4,7 +4,7 @@ f=/var/lib/cinder/volumes-pv
 loop=/dev/loop0
 modprobe loop
 
-if vgscan |grep -q cinder-volumes ; then
+if vgs |grep -q cinder-volumes ; then
   echo "using existing cinder-volumes VG"
   vgchange -ay cinder-volumes
   exit 0
@@ -16,7 +16,7 @@ vgchange -an cinder-volumes
 #losetup -d $loop
 
 # cleanup old nova-volumes volume group
-if vgscan | grep -q nova-volumes ; then
+if vgs | grep -q nova-volumes ; then
     echo "cleaning up old nova-volumes VG"
     vgchange -an nova-volumes
     vgremove nova-volumes
