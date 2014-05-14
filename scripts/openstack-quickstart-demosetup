@@ -236,7 +236,7 @@ echo 1 > /proc/sys/net/ipv4/ip_forward
 set -e
 
 # configure bridge
-if [ ! -e /etc/sysconfig/network/ifcfg-$br ] ; then
+if grep -q eth0 /proc/net/dev && [ ! -e /etc/sysconfig/network/ifcfg-$br ] ; then
     echo "net.ipv4.conf.all.proxy_arp = 1" >> /etc/sysctl.conf
     /etc/init.d/network stop
     ifdown eth0 # because systemd ignores the above
@@ -266,7 +266,8 @@ STARTMODE='onboot'
 USERCONTROL='no'
 POST_UP_SCRIPT='openstack-quickstart-neutron-$br'
 EOF
-    /etc/init.d/network start
+
+    /etc/init.d/network start || :
 fi
 
 #-----------------------------------------
