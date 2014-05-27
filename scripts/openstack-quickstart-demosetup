@@ -501,8 +501,8 @@ ifup $ext_bridge_name
 
 # Start glance and nova
 for s in openstack-glance-api openstack-glance-registry \
-    openstack-nova-api openstack-nova-conductor openstack-nova-scheduler openstack-nova-compute openstack-novncproxy \
-    openstack-nova-consoleauth
+    openstack-nova-api openstack-nova-conductor openstack-nova-scheduler openstack-nova-compute \
+    openstack-nova-novncproxy openstack-nova-consoleauth
 do
     start_and_enable_service $s
 done
