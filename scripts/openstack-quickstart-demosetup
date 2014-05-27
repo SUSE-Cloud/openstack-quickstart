@@ -582,6 +582,7 @@ if [ "x$with_tempest" = "xyes" -a -e /etc/tempest/tempest.conf ]; then
     crudini --set /etc/tempest/tempest.conf network public_network_id $ext_network_id
     crudini --set /etc/tempest/tempest.conf service_available neutron True
     crudini --set /etc/tempest/tempest.conf service_available swift False
+    crudini --set /etc/tempest/tempest.conf service_available ceilometer False
     crudini --set /etc/tempest/tempest.conf stress max_instances 1
     crudini --set /etc/tempest/tempest.conf service_available horizon $with_horizon
     crudini --set /etc/tempest/tempest.conf volume-feature-enabled backup false
