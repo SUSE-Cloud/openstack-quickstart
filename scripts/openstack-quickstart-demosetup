@@ -333,9 +333,7 @@ KEYSTONE_PUBLIC_ENDPOINT_V3=$KEYSTONE_AUTH_PROTOCOL://$KEYSTONE_AUTH_HOST:$KEYST
 for c in /etc/glance/glance-api.conf /etc/glance/glance-registry.conf \
     /etc/neutron/neutron.conf /etc/cinder/cinder.conf \
     /etc/heat/heat.conf /etc/nova/nova.conf ; do
-    crudini --set $c keystone_authtoken auth_host $IP
-    crudini --set $c keystone_authtoken auth_port 35357
-    crudini --set $c keystone_authtoken auth_protocol http
+    crudini --set $c keystone_authtoken identity_uri http://$IP:35357/
     crudini --set $c keystone_authtoken auth_uri $KEYSTONE_PUBLIC_ENDPOINT
     crudini --set $c keystone_authtoken admin_tenant_name service
     crudini --set $c keystone_authtoken admin_user '%SERVICE_USER%'
@@ -391,6 +389,9 @@ rm -f /var/lib/keystone/keystone.sqlite # cleanup DB as devstack's script fails 
 crudini --set /etc/keystone/keystone.conf DEFAULT admin_token "$SERVICE_TOKEN"
 
 /etc/init.d/openstack-keystone restart
+
+sleep 2
+
 keystone_data=/usr/lib/devstack/keystone_data.sh
 ENABLED_SERVICES="g-api,g-reg,key,n-api,n-cpu,n-net,n-vol,c-api,n-sch,n-novnc,n-xvnc,q-svc,heat,mysql,rabbit"
 if [ "x$with_horizon" = "xyes" ]; then
