@@ -372,6 +372,9 @@ fi
 # configure cinder
 crudini --set /etc/cinder/cinder.conf DEFAULT my_ip "$IP"
 crudini --set /etc/cinder/cinder.conf database connection "$DB://cinder:${mpw}@${IP}/cinder"
+if [ "x$with_tempest" = "xyes" ]; then
+    crudini --set /etc/cinder/cinder.conf DEFAULT volume_clear none
+fi
 
 for m in cinder heat nova glance neutron ; do
     sed -i -e 's/%SERVICE_TENANT_NAME%/service/' \
