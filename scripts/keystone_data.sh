@@ -158,6 +158,17 @@ if [[ "$ENABLED_SERVICES" =~ "n-vol" ]]; then
             --publicurl "http://$SERVICE_HOST:8776/v1/\$(tenant_id)s" \
             --adminurl "http://$SERVICE_HOST:8776/v1/\$(tenant_id)s" \
             --internalurl "http://$SERVICE_HOST:8776/v1/\$(tenant_id)s"
+
+        VOLUMEV2_SERVICE=$(get_id keystone service-create \
+            --name=volumev2 \
+            --type=volumev2 \
+            --description="Cinder Volume Service V2")
+        keystone endpoint-create \
+            --region RegionOne \
+            --service_id $VOLUMEV2_SERVICE \
+            --publicurl "http://$SERVICE_HOST:8776/v2/\$(tenant_id)s" \
+            --adminurl "http://$SERVICE_HOST:8776/v2/\$(tenant_id)s" \
+            --internalurl "http://$SERVICE_HOST:8776/v2/\$(tenant_id)s"
     fi
 fi
 
