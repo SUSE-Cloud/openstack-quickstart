@@ -23,14 +23,14 @@ function run_as () {
 }
 
 function get_router_id () {
-        eval `neutron router-show -f shell -F id public`
-        echo $id
+    eval `neutron router-show -f shell -F id public`
+    echo $id
 }
 
 function get_service_tenant_id () {
-	id=`keystone tenant-get service | awk '/id/  { print $4 } '`
+    id=`keystone tenant-get service | awk '/id/  { print $4 } '`
 
-	echo $id
+    echo $id
 }
 
 function start_and_enable_service () {
