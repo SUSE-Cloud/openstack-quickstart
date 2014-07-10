@@ -184,8 +184,23 @@ if [[ "$ENABLED_SERVICES" =~ "heat" ]]; then
     keystone user-role-add --tenant-id $SERVICE_TENANT \
                            --user-id $HEAT_USER \
                            --role-id $ADMIN_ROLE
+
     # heat_stack_user role is for users created by Heat
-    keystone role-create --name heat_stack_user
+    STACK_USER_ROLE=$(get_id keystone role-create --name=heat_stack_user)
+
+    # heat_stack_owner role is given to users who create Heat Stacks
+    STACK_OWNER_ROLE=$(get_id keystone role-create --name=heat_stack_owner)
+
+    # Give the role to the demo and admin users so they can create stacks
+    # in either of the projects created by devstack
+    keystone user-role-add \
+        --tenant-id $DEMO_TENANT --user-id $DEMO_USER --role-id $STACK_OWNER_ROLE
+
+    keystone user-role-add \
+        --tenant-id $DEMO_TENANT --user-id $ADMIN_USER --role-id $STACK_OWNER_ROLE
+
+    keystone user-role-add \
+        --tenant-id $ADMIN_TENANT --user-id $ADMIN_USER --role-id $STACK_OWNER_ROLE
 
     if [[ "$KEYSTONE_CATALOG_BACKEND" = 'sql' ]]; then
         HEAT_CFN_SERVICE=$(get_id keystone service-create \
