@@ -344,7 +344,8 @@ done
 ## setup glance configuration
 #-----------------------------------------
 
-sed -i "s%sql_connection =.*%sql_connection = $DB://glance:$mpw@$IP/glance%" /etc/glance/glance-registry.conf /etc/glance/glance-api.conf # db_sync is broken for postgresql
+crudini --set /etc/glance/glance-api.conf database connection "$DB://nova:$mpw@$IP/glance"
+crudini --set /etc/glance/glance-registry.conf database connection "$DB://nova:$mpw@$IP/glance"
 
 #-----------------------------------------
 ## setup nova configuration
