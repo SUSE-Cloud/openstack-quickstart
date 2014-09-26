@@ -346,7 +346,7 @@ if [[ "$ENABLED_SERVICES" =~ "c-api" ]]; then
 
         # Create Cinder V2 API
         CINDER_V2_SERVICE=$(get_id keystone service-create \
-                        --name=cinder \
+                        --name=cinderv2 \
                         --type=volumev2 \
                         --description="Cinder Volume Service V2")
         keystone endpoint-create \
