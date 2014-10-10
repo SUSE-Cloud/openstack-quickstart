@@ -394,11 +394,8 @@ for m in cinder heat nova glance neutron ; do
 done
 
 
-# keystone demo setup, based on devstack.sh
-
-sed -i -e 's/kvs/sql/' -e "s,^.*connection =.*,connection = $DB://keystone:$mpw@$IP/keystone," /etc/keystone/keystone.conf
-rm -f /var/lib/keystone/keystone.sqlite # cleanup DB as devstack's script fails otherwise
-
+# configure keystone
+crudini --set /etc/keystone/keystone.conf database connection $DB://keystone:$mpw@$IP/keystone
 crudini --set /etc/keystone/keystone.conf DEFAULT admin_token "$SERVICE_TOKEN"
 
 /etc/init.d/openstack-keystone restart
@@ -529,7 +526,7 @@ fi
 ## setup heat configuration
 #-----------------------------------------
 
-crudini --set /etc/heat/heat.conf DEFAULT sql_connection $DB://heat:$mpw@$IP/heat
+crudini --set /etc/heat/heat.conf database connection $DB://heat:$mpw@$IP/heat
 crudini --set /etc/heat/heat.conf DEFAULT deferred_auth_method trusts
 
 
