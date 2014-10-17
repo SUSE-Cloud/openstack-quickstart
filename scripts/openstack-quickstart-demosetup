@@ -238,7 +238,7 @@ set -e
 # configure bridge
 if grep -q eth0 /proc/net/dev && [ ! -e /etc/sysconfig/network/ifcfg-$br ] ; then
     echo "net.ipv4.conf.all.proxy_arp = 1" >> /etc/sysctl.conf
-    /etc/init.d/network stop
+    rcnetwork stop
     ifdown eth0 # because systemd ignores the above
     sed -i -e "s/\(BOOTPROTO\).*/\1='static'/"     \
            -e "s|^\(IPADDR\).*|\1='0.0.0.0\\/32'|" /etc/sysconfig/network/ifcfg-eth0
@@ -267,7 +267,7 @@ USERCONTROL='no'
 POST_UP_SCRIPT='openstack-quickstart-neutron-$br'
 EOF
 
-    /etc/init.d/network start || :
+    rcnetwork start || :
 fi
 
 #-----------------------------------------
