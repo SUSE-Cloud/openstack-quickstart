@@ -37,23 +37,26 @@ function start_and_enable_service () {
     i=/etc/init.d/$1
     if [ -x $i ] ; then
         insserv $1
-        if [ -n "$(type -p systemctl)" ]; then
-
-            systemctl start ${1}.service
-            systemctl enable ${1}.service
-        else
-            $i start
-        fi
+        $i start
         $i status
         if [ $? -eq 3 ]; then
-            if [ -n "$(type -p systemctl)" ]; then
-                journalctl -xn || :
-            fi
             echo "Service $1 is not running"
             exit 1
         fi
+    elif [ -n "$(type -p systemctl)" ]; then
+        s=${1}.service
+        if [ $(systemctl cat $s 2>/dev/null| wc -l) -gt 0 ]; then
+            systemctl enable $s
+            systemctl start $s
+            systemctl is-active --quiet $s
+            if [ $? -eq 3 ]; then
+                systemctl status $s || :
+                journalctl -xn || :
+                echo "Service $1 is not running"
+                exit 1
+            fi
+        fi
     fi
-
 }
 
 function stop_and_disable_service () {
@@ -176,12 +179,12 @@ fi
 
 
 # start some initial services
-for s in ntp libvirtd $DB tgtd memcached
+for s in ntp ntpd libvirtd $DB tgtd memcached
 do
     start_and_enable_service $s
 done
 
-start_and_enable_service open-iscsi || :
+start_and_enable_service open-iscsi
 
 
 # Set up the database
