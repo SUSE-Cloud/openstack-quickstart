@@ -241,8 +241,6 @@ set -e
 # configure bridge
 if grep -q eth0 /proc/net/dev && [ ! -e /etc/sysconfig/network/ifcfg-$br ] ; then
     echo "net.ipv4.conf.all.proxy_arp = 1" >> /etc/sysctl.conf
-    rcnetwork stop
-    ifdown eth0 # because systemd ignores the above
     sed -i -e "s/\(BOOTPROTO\).*/\1='static'/"     \
            -e "s|^\(IPADDR\).*|\1='0.0.0.0\\/32'|" /etc/sysconfig/network/ifcfg-eth0
     cat >/etc/sysconfig/network/scripts/openstack-quickstart-neutron-$br<<EOF
@@ -269,8 +267,11 @@ STARTMODE='onboot'
 USERCONTROL='no'
 POST_UP_SCRIPT='openstack-quickstart-neutron-$br'
 EOF
-
+    rcnetwork stop
+    ifdown eth0 # because systemd ignores the above
     rcnetwork start || :
+    grep -q $br /proc/net/dev || ifup $br
+    grep -q vefq /proc/net/dev || /etc/sysconfig/network/scripts/openstack-quickstart-neutron-$br
 fi
 
 #-----------------------------------------
@@ -488,7 +489,7 @@ neutron router-create --tenant-id $SERVICE_TENANT_ID public
 neutron router-interface-add public fixed
 
 ## floating/external
-neutron net-create ext --tenant-id $SERVICE_TENANT_ID --provider:network_type local --router:external True
+neutron net-create ext --tenant-id $SERVICE_TENANT_ID --provider:network_type local --router:external
 
 ext_network_id=$(neutron net-list | grep ' ext '  | cut -d' ' -f2)
 neutron subnet-create --name ext --disable-dhcp --tenant-id $SERVICE_TENANT_ID ext $floatingnet
