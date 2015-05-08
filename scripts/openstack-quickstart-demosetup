@@ -591,6 +591,7 @@ nova secgroup-list-rules default # lists the rules
 #-----------------------------------------
 
 if [ "x$with_tempest" = "xyes" -a -e /etc/tempest/tempest.conf ]; then
+    crudini --set /etc/tempest/tempest.conf auth allow_tenant_isolation false
     crudini --set /etc/tempest/tempest.conf identity uri $KEYSTONE_PUBLIC_ENDPOINT
     crudini --set /etc/tempest/tempest.conf identity uri_v3 $KEYSTONE_PUBLIC_ENDPOINT_V3
     crudini --set /etc/tempest/tempest.conf identity username demo
@@ -604,7 +605,6 @@ if [ "x$with_tempest" = "xyes" -a -e /etc/tempest/tempest.conf ]; then
     crudini --set /etc/tempest/tempest.conf compute-feature-enabled live_migration False
     crudini --set /etc/tempest/tempest.conf compute-feature-enabled vnc_console true
     crudini --set /etc/tempest/tempest.conf compute-feature-enabled resize true
-    crudini --set /etc/tempest/tempest.conf compute allow_tenant_isolation false
     crudini --set /etc/tempest/tempest.conf compute fixed_network_name fixed
     crudini --set /etc/tempest/tempest.conf compute network_for_ssh ext
     crudini --set /etc/tempest/tempest.conf compute-admin username admin
