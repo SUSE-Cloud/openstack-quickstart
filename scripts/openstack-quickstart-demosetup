@@ -372,7 +372,8 @@ crudini --set /etc/nova/nova.conf DEFAULT metadata_workers "1"
 crudini --set /etc/nova/nova.conf conductor workers "1"
 
 metadata_secret=$(uuidgen)
-crudini --set /etc/nova/nova.conf DEFAULT neutron_metadata_proxy_shared_secret $metadata_secret
+crudini --set /etc/nova/nova.conf neutron service_metadata_proxy True
+crudini --set /etc/nova/nova.conf neutron metadata_proxy_shared_secret $metadata_secret
 crudini --set /etc/nova/nova.conf keymgr fixed_key "$FIXED_KEY"
 
 extensions_path=$(ls -d /usr/lib*/python*/site-packages/extensions 2> /dev/null | head -n 1)
