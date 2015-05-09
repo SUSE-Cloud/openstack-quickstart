@@ -117,7 +117,8 @@ setcreds admin $pw" >> /etc/bash.bashrc.local
 install_packages patterns-OpenStack-controller patterns-OpenStack-compute-node patterns-OpenStack-clients patterns-OpenStack-network-node crudini psmisc
 
 if [ "x$with_tempest" = "xyes" ]; then
-    install_packages openstack-nova-objectstore openstack-neutron-lbaas-agent
+    install_packages openstack-nova-objectstore openstack-neutron-lbaas-agent \
+        openstack-neutron-vpn-agent openstack-neutron-fwaas
 fi
 
 if [ "$DB" = "postgresql" ] ; then
