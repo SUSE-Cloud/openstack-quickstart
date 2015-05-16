@@ -323,6 +323,8 @@ SESSION_COOKIE_SECURE = CSRF_COOKIE_SECURE = USE_SSL
 EOSEC
     # sync dashboard DB "after" the database is created
     run_as wwwrun "cd /srv/www/openstack-dashboard; umask 0027; python -m 'manage' syncdb --noinput"
+
+    start_and_enable_service apache2
 fi
 
 KEYSTONE_AUTH_HOST=${KEYSTONE_AUTH_HOST:-$SERVICE_HOST}
