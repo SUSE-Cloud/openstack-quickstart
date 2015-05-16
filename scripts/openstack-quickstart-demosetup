@@ -476,9 +476,8 @@ do
 done
 
 if [ "x$with_tempest" = "xyes" ]; then
-    start_and_enable_service openstack-neutron-lbaas-agent
     crudini --set /etc/neutron/lbaas_agent.ini DEFAULT interface_driver neutron.agent.linux.interface.BridgeInterfaceDriver
-
+    start_and_enable_service openstack-neutron-lbaas-agent
 fi
 
 ### wait until neutron will start
