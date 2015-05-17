@@ -111,30 +111,12 @@ fi
 # modprobe for snapshot support
 modprobe dm_snapshot || :
 
-# disable firewall before playing with ip_forward stuff
-rm -f /usr/lib/python*/site-packages/nova-iptables.lock.lock # workaround bug
-rm -f /var/lock/SuSEfirewall2.booting # workaround openSUSE bug
-if test -e /sbin/SuSEfirewall2; then
-    SuSEfirewall2 stop        # interferes with openstack's network/firewall
-    stop_and_disable_service SuSEfirewall2_setup
-    stop_and_disable_service SuSEfirewall2_init
-fi
-# activate ip-forwarding
-[ -e /etc/sysconfig/sysctl ] && sed -i -e 's;IP_FORWARD="no";IP_FORWARD="yes";' /etc/sysconfig/sysctl
-if grep -q 'net.ipv4.ip_forward' /etc/sysctl.conf; then
-     sed -i -e 's;net.ipv4.ip_forward.*;net.ipv4.ip_forward = 1;' /etc/sysctl.conf
-else
-     #sysctl file may not have ending new line
-     echo  >> /etc/sysctl.conf
-     echo "net.ipv4.ip_forward = 1" >> /etc/sysctl.conf
-fi
-echo 1 > /proc/sys/net/ipv4/ip_forward
+disable_firewall_and_enable_forwarding
 
 set -e
 
 # configure bridge
 if grep -q eth0 /proc/net/dev && [ ! -e /etc/sysconfig/network/ifcfg-$br ] ; then
-    echo "net.ipv4.conf.all.proxy_arp = 1" >> /etc/sysctl.conf
     sed -i -e "s/\(BOOTPROTO\).*/\1='static'/"     \
            -e "s|^\(IPADDR\).*|\1='0.0.0.0\\/32'|" /etc/sysconfig/network/ifcfg-eth0
     cat >/etc/sysconfig/network/scripts/openstack-quickstart-neutron-$br<<EOF
@@ -358,6 +340,10 @@ if [ "x$with_tempest" = "xyes" ]; then
 fi
 
 start_and_enable_service rabbitmq-server
+
+sleep 2
+rabbitmqctl add_user openstack $ADMIN_PASSWORD
+rabbitmqctl set_permissions openstack ".*" ".*" ".*"
 
 # Start Keystone and Neutron
 for s in openstack-keystone \
