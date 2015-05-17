@@ -26,7 +26,8 @@ fi
 
 if [ "x$with_tempest" = "xyes" ]; then
     install_packages openstack-nova-objectstore openstack-neutron-lbaas-agent \
-        openstack-neutron-vpn-agent openstack-neutron-fwaas
+        openstack-neutron-vpn-agent openstack-neutron-fwaas \
+        openstack-tempest-test
 fi
 
 if [ "$DB" = "postgresql" ] ; then
