@@ -209,11 +209,19 @@ if rpm -q openstack-nova-compute >/dev/null ; then
         crudini --set /etc/nova/nova.conf libvirt virt_type lxc
         install_packages lxc
     else
-        modprobe kvm-intel ; modprobe kvm-amd
-        sed -i -e 's/\(MODULES_LOADED_ON_BOOT="\)/\1kvm-intel kvm-amd\ /' /etc/sysconfig/kernel
+        grep -qw vmx /proc/cpuinfo && {
+            modprobe kvm-intel
+            echo kvm-intel > /etc/modules-load.d/openstack-kvm.conf
+        }
+        grep -qw svm /proc/cpuinfo && {
+            modprobe kvm-amd
+            echo kvm-amd > /etc/modules-load.d/openstack-kvm.conf
+        }
     fi
     modprobe nbd
-    sed -i -e 's/\(MODULES_LOADED_ON_BOOT="\)/\1nbd\ /' /etc/sysconfig/kernel
+    modprobe vhost-net
+    echo nbd > /etc/modules-load.d/openstack-quickstart-nova-compute.conf
+    echo vhost-net >> /etc/modules-load.d/openstack-quickstart-nova-compute.conf
 fi
 
 # modprobe for snapshot support
