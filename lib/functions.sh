@@ -136,3 +136,35 @@ function setup_node_for_nova_compute() {
     start_and_enable_service libvirtd
 }
 
+
+function disable_firewall_and_enable_forwarding() {
+
+    # disable firewall before playing with ip_forward stuff
+    rm -f /usr/lib/python*/site-packages/nova-iptables.lock.lock # workaround bug
+    rm -f /var/lock/SuSEfirewall2.booting # workaround openSUSE bug
+    if test -e /sbin/SuSEfirewall2; then
+        SuSEfirewall2 stop        # interferes with openstack's network/firewall
+        stop_and_disable_service SuSEfirewall2_setup
+        stop_and_disable_service SuSEfirewall2_init
+    fi
+
+    # activate ip-forwarding
+    cat - > /etc/sysctl.d/90-openstack-quickstart.conf <<EOF
+net.ipv4.ip_forward=1
+net.ipv4.conf.all.rp_filter=0
+net.ipv4.conf.default.rp_filter=0
+EOF
+# do we need this?
+#net.ipv4.conf.all.proxy_arp = 1
+
+    sysctl -p /etc/sysctl.d/90-openstack-quickstart.conf
+}
+
+function setup_messaging_client() {
+    conf=$1
+    [ -e "$conf" ] || return 0
+
+    crudini --set $conf oslo_messaging_rabbit rabbit_host $IP
+    crudini --set $conf oslo_messaging_rabbit rabbit_userid openstack
+    crudini --set $conf oslo_messaging_rabbit rabbit_password $mpw
+}

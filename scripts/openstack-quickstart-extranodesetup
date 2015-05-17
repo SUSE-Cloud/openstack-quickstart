@@ -9,20 +9,13 @@ echo "Setting up OpenStack demo extra node..."
 install_packages patterns-OpenStack-compute-node
 
 setup_node_for_nova_compute
-
-# activate ip-forwarding
-sed -i -e 's;IP_FORWARD="no";IP_FORWARD="yes";' /etc/sysconfig/sysctl
-sed -i -e 's;net.ipv4.ip_forward.*;net.ipv4.ip_forward = 1;' /etc/sysctl.conf
-echo 1 > /proc/sys/net/ipv4/ip_forward
+disable_firewall_and_enable_forwarding
 
 # configure bridge
 if [ ! -e /etc/sysconfig/network/ifcfg-br0 ] ; then
-	echo "net.ipv4.conf.all.proxy_arp = 1" >> /etc/sysctl.conf
-	/etc/init.d/network stop
-	ifdown eth0 # because systemd ignores the above
-	sed -i -e "s/\(BOOTPROTO\).*/\1='static'/"     \
-	       -e "s|^\(IPADDR\).*|\1='0.0.0.0\\/32'|" /etc/sysconfig/network/ifcfg-eth0
-	cat >/etc/sysconfig/network/ifcfg-br0 <<EOF
+    sed -i -e "s/\(BOOTPROTO\).*/\1='static'/"     \
+        -e "s|^\(IPADDR\).*|\1='0.0.0.0\\/32'|" /etc/sysconfig/network/ifcfg-eth0
+    cat >/etc/sysconfig/network/ifcfg-br0 <<EOF
 BOOTPROTO='dhcp4'
 BRIDGE='yes'
 BRIDGE_FORWARDDELAY='0'
@@ -38,7 +31,9 @@ REMOTE_IPADDR=''
 STARTMODE='onboot'
 USERCONTROL='no'
 EOF
-	/etc/init.d/network start
+    rcnetwork stop
+    ifdown eth0 # because systemd ignores the above
+    rcnetwork start || :
 fi
 
 ownip=`ip addr show dev br0 | perl -ne 'm/inet (\d+\.\d+\.\d+\.\d+)/ && print $1'`
@@ -48,6 +43,10 @@ perl -i.bak -pe "s/root:<mysql-password>/nova:$mpw/; s/<IP>/$IP/g; s/(--network_
 if [ "$DB" = "postgresql" ] ; then
 	perl -i -pe 's/--sql_connection=\w+/--sql_connection=postgresql/' /etc/nova/nova.conf
 fi
+
+setup_messaging_client /etc/nova/nova.conf
+
+# all broken?
 echo '--flat_network_bridge=br0' >> /etc/nova/nova.conf
 echo "--image_service=nova.image.glance.GlanceImageService" >> /etc/nova/nova.conf
 echo "--glance_api_servers=$IP:9292" >> /etc/nova/nova.conf
@@ -55,18 +54,19 @@ echo "--novncproxy_base_url=http://$IP:6080/vnc_auto.html" >> /etc/nova/nova.con
 echo "--vncserver_listen=$ownip" >> /etc/nova/nova.conf
 echo "--vncserver_proxyclient_address=$ownip" >> /etc/nova/nova.conf
 
-SuSEfirewall2 stop	# interferes with openstack's network/firewall
-insserv -r SuSEfirewall2_setup
-insserv -r SuSEfirewall2_init
-/etc/init.d/boot.apparmor stop		# interferes with openstack-nova-network
-insserv -r boot.apparmor
+for m in cinder heat nova glance neutron ; do
+    sed -i -e 's/%SERVICE_TENANT_NAME%/service/' \
+           -e "s/%SERVICE_USER%/$m/" \
+           -e "s/%SERVICE_PASSWORD%/$ADMIN_PASSWORD/" \
+               /etc/$m/*.ini /etc/$m/$m*.conf
+done
 
 
 # configure NTP, because we need synchronized time between nodes
 grep -q ntp.org /etc/ntp.conf || echo server pool.ntp.org >> /etc/ntp.conf
 
 # start services
-for s in ntp iscsitarget open-iscsi tgtd
+for s in ntp iscsitarget open-iscsi tgtd openstack-nova-compute
 do
     start_and_enable_service $i
 done
