@@ -14,6 +14,8 @@ install:
 	install -p -m 755 scripts/getkstoken ${DESTDIR}${BINDIR}
 	install -d ${DESTDIR}${LIBEXECDIR}/devstack
 	install -p -m 755 scripts/keystone_data.sh ${DESTDIR}${LIBEXECDIR}/devstack
+	install -d ${DESTDIR}${LIBEXECDIR}/openstack-quickstart
+	install -p -m 755 lib/functions.sh ${DESTDIR}${LIBEXECDIR}/openstack-quickstart
 	install -d ${DESTDIR}${SYSCONFDIR}
 	install -p -m 644 etc/bash.openstackrc ${DESTDIR}${SYSCONFDIR}
 	install -p -m 600 etc/openstackquickstartrc ${DESTDIR}${SYSCONFDIR}
