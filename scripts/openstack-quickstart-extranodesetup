@@ -8,15 +8,7 @@ echo "Setting up OpenStack demo extra node..."
 
 install_packages patterns-OpenStack-compute-node
 
-# use lxc or qemu, if kvm is unavailable
-if rpm -q openstack-nova-compute >/dev/null && ! grep -q -e vmx -e svm /proc/cpuinfo ; then
-	sed -i -e 's/\(--libvirt_type\).*/\1=lxc/' /etc/nova/nova.conf
-	zypper -n install lxc
-	modprobe nbd
-	sed -i -e 's/\(MODULES_LOADED_ON_BOOT="\)/\1nbd\ /' /etc/sysconfig/kernel
-	echo mount -t cgroup none /cgroup >> /etc/init.d/boot.local
-	mount -t cgroup none /cgroup
-fi
+setup_node_for_nova_compute
 
 # activate ip-forwarding
 sed -i -e 's;IP_FORWARD="no";IP_FORWARD="yes";' /etc/sysconfig/sysctl
@@ -73,11 +65,8 @@ insserv -r boot.apparmor
 # configure NTP, because we need synchronized time between nodes
 grep -q ntp.org /etc/ntp.conf || echo server pool.ntp.org >> /etc/ntp.conf
 
-# change libvirt to run qemu as user qemu
-sed -i -e 's;.*user.*=.*;user = "qemu";' /etc/libvirt/qemu.conf
-
 # start services
-for s in ntp libvirtd iscsitarget open-iscsi tgtd openstack-nova-compute openstack-nova-consoleauth
+for s in ntp iscsitarget open-iscsi tgtd
 do
     start_and_enable_service $i
 done

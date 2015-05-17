@@ -18,7 +18,11 @@ echo "export HOST_IP=$IP
 . /etc/bash.openstackrc
 setcreds admin $pw" >> /etc/bash.bashrc.local
 
-install_packages patterns-OpenStack-controller patterns-OpenStack-compute-node patterns-OpenStack-clients patterns-OpenStack-network-node crudini psmisc
+install_packages patterns-OpenStack-controller patterns-OpenStack-clients patterns-OpenStack-network-node crudini psmisc
+
+if [ "x$node_is_compute" = "xyes" ]; then
+    install_packages patterns-OpenStack-compute-node
+fi
 
 if [ "x$with_tempest" = "xyes" ]; then
     install_packages openstack-nova-objectstore openstack-neutron-lbaas-agent \
@@ -35,13 +39,6 @@ fi
 
 # configure NTP, because we need synchronized time between nodes
 grep -q ntp.org /etc/ntp.conf || echo server pool.ntp.org >> /etc/ntp.conf
-
-# change libvirt to run qemu as user qemu
-sed -i -e 's;.*user.*=.*;user = "qemu";' /etc/libvirt/qemu.conf
-if [ -e /dev/kvm ]; then
-    chown root:kvm /dev/kvm
-    chmod 660 /dev/kvm
-fi
 
 # configure tgt for cinder
 if [ -f /etc/tgt/targets.conf ]; then
@@ -85,7 +82,7 @@ fi
 
 
 # start some initial services
-for s in ntp ntpd libvirtd $DB tgtd memcached
+for s in ntp ntpd $DB tgtd memcached
 do
     start_and_enable_service $s
 done
@@ -106,26 +103,8 @@ if [ "$DB" = "postgresql" ] ; then
     sudo -u postgres createuser -s root || :
 fi
 
-grep -q -e vmx -e svm /proc/cpuinfo || MODE=lxc
-# use lxc or qemu, if kvm is unavailable
-if rpm -q openstack-nova-compute >/dev/null ; then
-    if [ "$MODE" = lxc ] ; then
-        crudini --set /etc/nova/nova.conf libvirt virt_type lxc
-        install_packages lxc
-    else
-        grep -qw vmx /proc/cpuinfo && {
-            modprobe kvm-intel
-            echo kvm-intel > /etc/modules-load.d/openstack-kvm.conf
-        }
-        grep -qw svm /proc/cpuinfo && {
-            modprobe kvm-amd
-            echo kvm-amd > /etc/modules-load.d/openstack-kvm.conf
-        }
-    fi
-    modprobe nbd
-    modprobe vhost-net
-    echo nbd > /etc/modules-load.d/openstack-quickstart-nova-compute.conf
-    echo vhost-net >> /etc/modules-load.d/openstack-quickstart-nova-compute.conf
+if [ "x$node_is_compute" = "xyes" ]; then
+    setup_node_for_nova_compute
 fi
 
 # modprobe for snapshot support

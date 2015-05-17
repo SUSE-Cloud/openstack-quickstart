@@ -97,3 +97,41 @@ EOF
     iptables -t nat -L POSTROUTING | grep -q MASQERADE || /etc/sysconfig/network/scripts/openstack-quickstart-neutron-$1
 }
 
+
+function setup_node_for_nova_compute() {
+    # change libvirt to run qemu as user qemu
+    sed -i -e 's;.*user.*=.*;user = "qemu";' /etc/libvirt/qemu.conf
+    if [ -e /dev/kvm ]; then
+        chown root:kvm /dev/kvm
+        chmod 660 /dev/kvm
+    fi
+
+    crudini --set /etc/libvirt/libvirtd.conf "" listen_tcp 1
+    crudini --set /etc/libvirt/libvirtd.conf "" listen_addr $MY_ADMINIP
+    crudini --set /etc/libvirt/libvirtd.conf "" listen_auth_tcp none
+
+    start_and_enable_service libvirtd
+
+    grep -q -e vmx -e svm /proc/cpuinfo || MODE=lxc
+    # use lxc or qemu, if kvm is unavailable
+    if rpm -q openstack-nova-compute >/dev/null ; then
+        if [ "$MODE" = lxc ] ; then
+            crudini --set /etc/nova/nova.conf libvirt virt_type lxc
+            install_packages lxc
+        else
+            grep -qw vmx /proc/cpuinfo && {
+                modprobe kvm-intel
+                echo kvm-intel > /etc/modules-load.d/openstack-kvm.conf
+            }
+            grep -qw svm /proc/cpuinfo && {
+                modprobe kvm-amd
+                echo kvm-amd > /etc/modules-load.d/openstack-kvm.conf
+            }
+        fi
+        modprobe nbd
+        modprobe vhost-net
+        echo nbd > /etc/modules-load.d/openstack-quickstart-nova-compute.conf
+        echo vhost-net >> /etc/modules-load.d/openstack-quickstart-nova-compute.conf
+    fi
+}
+
