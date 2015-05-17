@@ -2,12 +2,9 @@
 
 . /etc/openstackquickstartrc
 
-echo "Setting up OpenStack demo extra node..."
+. /usr/lib/openstack-quickstart/functions.sh
 
-function install_packages () {
-  test $# -gt 0 || return
-  rpm -q $* > /dev/null || zypper -n in $*
-}
+echo "Setting up OpenStack demo extra node..."
 
 install_packages patterns-OpenStack-compute-node
 
@@ -82,11 +79,7 @@ sed -i -e 's;.*user.*=.*;user = "qemu";' /etc/libvirt/qemu.conf
 # start services
 for s in ntp libvirtd iscsitarget open-iscsi tgtd openstack-nova-compute openstack-nova-consoleauth
 do
-	i=/etc/init.d/$s
-	if [ -x $i ] ; then
-		insserv $s
-		$i restart
-	fi
+    start_and_enable_service $i
 done
 
 grep -q bash.openstackrc /etc/bash.bashrc.local ||\
