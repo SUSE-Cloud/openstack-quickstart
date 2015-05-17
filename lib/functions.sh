@@ -110,8 +110,6 @@ function setup_node_for_nova_compute() {
     crudini --set /etc/libvirt/libvirtd.conf "" listen_addr $MY_ADMINIP
     crudini --set /etc/libvirt/libvirtd.conf "" listen_auth_tcp none
 
-    start_and_enable_service libvirtd
-
     grep -q -e vmx -e svm /proc/cpuinfo || MODE=lxc
     # use lxc or qemu, if kvm is unavailable
     if rpm -q openstack-nova-compute >/dev/null ; then
@@ -133,5 +131,7 @@ function setup_node_for_nova_compute() {
         echo nbd > /etc/modules-load.d/openstack-quickstart-nova-compute.conf
         echo vhost-net >> /etc/modules-load.d/openstack-quickstart-nova-compute.conf
     fi
+
+    start_and_enable_service libvirtd
 }
 
