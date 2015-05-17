@@ -106,9 +106,10 @@ function setup_node_for_nova_compute() {
         chmod 660 /dev/kvm
     fi
 
-    crudini --set /etc/libvirt/libvirtd.conf "" listen_tcp 1
-    crudini --set /etc/libvirt/libvirtd.conf "" listen_addr $MY_ADMINIP
-    crudini --set /etc/libvirt/libvirtd.conf "" listen_auth_tcp none
+    # requires working DNS
+    #crudini --set /etc/libvirt/libvirtd.conf "" listen_tcp 1
+    #crudini --set /etc/libvirt/libvirtd.conf "" listen_addr $MY_ADMINIP
+    #crudini --set /etc/libvirt/libvirtd.conf "" listen_auth_tcp none
 
     grep -q -e vmx -e svm /proc/cpuinfo || MODE=lxc
     # use lxc or qemu, if kvm is unavailable
