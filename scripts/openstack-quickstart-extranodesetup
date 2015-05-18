@@ -12,10 +12,10 @@ setup_node_for_nova_compute
 disable_firewall_and_enable_forwarding
 
 # configure bridge
-if [ ! -e /etc/sysconfig/network/ifcfg-br0 ] ; then
+if [ ! -e /etc/sysconfig/network/ifcfg-$br ] ; then
     sed -i -e "s/\(BOOTPROTO\).*/\1='static'/"     \
         -e "s|^\(IPADDR\).*|\1='0.0.0.0\\/32'|" /etc/sysconfig/network/ifcfg-eth0
-    cat >/etc/sysconfig/network/ifcfg-br0 <<EOF
+    cat >/etc/sysconfig/network/ifcfg-$br <<EOF
 BOOTPROTO='dhcp4'
 BRIDGE='yes'
 BRIDGE_FORWARDDELAY='0'
@@ -61,18 +61,16 @@ for m in cinder heat nova glance neutron ; do
                /etc/$m/*.ini /etc/$m/$m*.conf
 done
 
-
 # configure NTP, because we need synchronized time between nodes
 grep -q ntp.org /etc/ntp.conf || echo server pool.ntp.org >> /etc/ntp.conf
 
 # start services
 for s in ntp iscsitarget open-iscsi tgtd openstack-nova-compute
 do
-    start_and_enable_service $i
+    start_and_enable_service $s
 done
 
 grep -q bash.openstackrc /etc/bash.bashrc.local ||\
 echo "export HOST_IP=$IP
 . /etc/bash.openstackrc 
 setcreds admin $pw" >> /etc/bash.bashrc.local
-
