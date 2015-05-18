@@ -238,7 +238,7 @@ crudini --set /etc/nova/nova.conf DEFAULT ec2_workers "1"
 crudini --set /etc/nova/nova.conf DEFAULT metadata_workers "1"
 crudini --set /etc/nova/nova.conf conductor workers "1"
 
-metadata_secret=$(uuidgen)
+metadata_secret=$(echo $ADMIN_PASSWORD | md5sum | cut -d" " -f1)
 crudini --set /etc/nova/nova.conf neutron service_metadata_proxy True
 crudini --set /etc/nova/nova.conf neutron metadata_proxy_shared_secret $metadata_secret
 crudini --set /etc/nova/nova.conf keymgr fixed_key "$FIXED_KEY"
