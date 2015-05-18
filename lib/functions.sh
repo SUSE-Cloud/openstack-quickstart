@@ -1,5 +1,15 @@
 #!/bin/bash
 
+SERVICE_HOST=$IP
+ADMIN_PASSWORD=$pw
+
+KEYSTONE_AUTH_HOST=${KEYSTONE_AUTH_HOST:-$SERVICE_HOST}
+KEYSTONE_AUTH_PORT=${KEYSTONE_AUTH_PORT:-35357}
+KEYSTONE_SERVICE_PORT=${KEYSTONE_AUTH_SERVICE_PORT:-5000}
+KEYSTONE_AUTH_PROTOCOL=${KEYSTONE_AUTH_PROTOCOL:-http}
+KEYSTONE_PUBLIC_ENDPOINT=$KEYSTONE_AUTH_PROTOCOL://$KEYSTONE_AUTH_HOST:$KEYSTONE_SERVICE_PORT/v2.0
+KEYSTONE_PUBLIC_ENDPOINT_V3=$KEYSTONE_AUTH_PROTOCOL://$KEYSTONE_AUTH_HOST:$KEYSTONE_SERVICE_PORT/v3
+
 function install_packages () {
     test $# -gt 0 || return
     rpm -q $* > /dev/null || zypper -n in $* || exit 1
@@ -166,5 +176,16 @@ function setup_messaging_client() {
 
     crudini --set $conf oslo_messaging_rabbit rabbit_host $IP
     crudini --set $conf oslo_messaging_rabbit rabbit_userid openstack
-    crudini --set $conf oslo_messaging_rabbit rabbit_password $mpw
+    crudini --set $conf oslo_messaging_rabbit rabbit_password $pw
+}
+
+function setup_keystone_authtoken() {
+    conf=$1
+    [ -e "$conf" ] || return 0
+
+    crudini --set $conf keystone_authtoken identity_uri http://$IP:35357/
+    crudini --set $conf keystone_authtoken auth_uri $KEYSTONE_PUBLIC_ENDPOINT
+    crudini --set $conf keystone_authtoken admin_tenant_name service
+    crudini --set $conf keystone_authtoken admin_user '%SERVICE_USER%'
+    crudini --set $conf keystone_authtoken admin_password '%SERVICE_PASSWORD%'
 }
