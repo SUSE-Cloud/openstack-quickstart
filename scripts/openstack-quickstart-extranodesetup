@@ -45,6 +45,7 @@ if [ "$DB" = "postgresql" ] ; then
 fi
 
 setup_messaging_client /etc/nova/nova.conf
+setup_keystone_authtoken /etc/nova/nova.conf
 
 # all broken?
 echo '--flat_network_bridge=br0' >> /etc/nova/nova.conf
