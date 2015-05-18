@@ -46,6 +46,7 @@ crudini --set /etc/neutron/metadata_agent.ini DEFAULT metadata_proxy_shared_secr
 
 setup_messaging_client /etc/nova/nova.conf
 setup_keystone_authtoken /etc/nova/nova.conf
+setup_nova_compute
 
 crudini --set /etc/nova/nova.conf neutron url http://$IP:9696/
 crudini --set /etc/nova/nova.conf neutron admin_auth_url $KEYSTONE_PUBLIC_ENDPOINT
