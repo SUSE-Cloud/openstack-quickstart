@@ -243,6 +243,8 @@ crudini --set /etc/nova/nova.conf neutron service_metadata_proxy True
 crudini --set /etc/nova/nova.conf neutron metadata_proxy_shared_secret $metadata_secret
 crudini --set /etc/nova/nova.conf keymgr fixed_key "$FIXED_KEY"
 
+setup_nova_compute
+
 extensions_path=$(ls -d /usr/lib*/python*/site-packages/extensions 2> /dev/null | head -n 1)
 if [ -n "$extensions_path" ]; then
     crudini --set /etc/nova/nova.conf DEFAULT osapi_extensions_path "$extensions_path"

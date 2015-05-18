@@ -146,6 +146,11 @@ function setup_node_for_nova_compute() {
     start_and_enable_service libvirtd
 }
 
+function setup_nova_compute() {
+
+    crudini --set /etc/nova/nova.conf DEFAULT linuxnet_interface_driver ""
+}
+
 
 function disable_firewall_and_enable_forwarding() {
 
