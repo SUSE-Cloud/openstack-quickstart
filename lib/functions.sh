@@ -94,7 +94,7 @@ function setup_ext_bridge_on_boot () {
     local eth
 
     eth=$FLOATING_ETH
-    [ -n "$FLOATING_VLAN"] && eth+=".$FLOATING_VLAN"
+    [ x$FLOATING_VLAN != x ] && eth+=".$FLOATING_VLAN"
 
     cat >/etc/sysconfig/network/ifcfg-$1 <<EOF
 BRIDGE='yes'
