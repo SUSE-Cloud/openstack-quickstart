@@ -40,3 +40,6 @@ FIXED_VLAN=999
 
 # VLAN range for tenant networks
 TENANT_VLAN_RANGE=1000:2000
+
+# eth device to use for tenant networks
+TENANT_ETH=eth0
