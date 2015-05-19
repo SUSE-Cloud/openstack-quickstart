@@ -160,7 +160,7 @@ if [ "x$with_horizon" = "xyes" ]; then
     a2enmod ssl
     a2enmod wsgi
     a2enmod socache_shmcb
-    a2enflag SSL
+    a2enmod deflate
 
     DASHBOARD_LOCAL_SET=/srv/www/openstack-dashboard/openstack_dashboard/local/local_settings.py
     if grep -q "^\s*CACHE_BACKEND" $DASHBOARD_LOCAL_SET ; then
@@ -184,10 +184,17 @@ EODASHDB
     fi
 
     if grep -q "^USE_SSL =" $DASHBOARD_LOCAL_SET; then
-        sed -i -e "s/^USE_SSL =.*/USE_SSL = True/" $DASHBOARD_LOCAL_SET
+        sed -i -e "s/^USE_SSL =.*/USE_SSL = False/" $DASHBOARD_LOCAL_SET
     else
-        echo "USE_SSL = True" >> $DASHBOARD_LOCAL_SET
+        echo "USE_SSL = False" >> $DASHBOARD_LOCAL_SET
     fi
+
+    if grep -q "^ALLOWED_HOSTS =" $DASHBOARD_LOCAL_SET; then
+        sed -i -e "s,^ALLOWED_HOSTS =.*,ALLOWED_HOSTS = ['*', ]" $DASHBOARD_LOCAL_SET
+    else
+        echo "ALLOWED_HOSTS = ['*', ]" >> $DASHBOARD_LOCAL_SET
+    fi
+
     # Use 'secure' session and CSRF cookies (bnc#753582):
     cat >> $DASHBOARD_LOCAL_SET <<EOSEC
 # Use 'secure' cookies when we use SSL, see https://docs.djangoproject.com/en/1.4/topics/security/:
