@@ -113,41 +113,6 @@ disable_firewall_and_enable_forwarding
 
 set -e
 
-# configure bridge
-if grep -q eth0 /proc/net/dev && [ ! -e /etc/sysconfig/network/ifcfg-$br ] ; then
-    sed -i -e "s/\(BOOTPROTO\).*/\1='static'/"     \
-           -e "s|^\(IPADDR\).*|\1='0.0.0.0\\/32'|" /etc/sysconfig/network/ifcfg-eth0
-    cat >/etc/sysconfig/network/scripts/openstack-quickstart-neutron-$br<<EOF
-ip link add name vefr type veth peer name vefq
-ip link set vefr up
-ip link set vefq up
-brctl addif $br vefr
-EOF
-chmod 755 /etc/sysconfig/network/scripts/openstack-quickstart-neutron-$br
-    cat >/etc/sysconfig/network/ifcfg-$br <<EOF
-BOOTPROTO='dhcp4'
-BRIDGE='yes'
-BRIDGE_FORWARDDELAY='0'
-BRIDGE_PORTS='eth0'
-BRIDGE_STP='off'
-BROADCAST=''
-ETHTOOL_OPTIONS=''
-IPADDR=''
-MTU=''
-NETMASK=''
-NETWORK=''
-REMOTE_IPADDR=''
-STARTMODE='onboot'
-USERCONTROL='no'
-POST_UP_SCRIPT='openstack-quickstart-neutron-$br'
-EOF
-    rcnetwork stop
-    ifdown eth0 # because systemd ignores the above
-    rcnetwork start || :
-    grep -q $br /proc/net/dev || ifup $br
-    grep -q vefq /proc/net/dev || /etc/sysconfig/network/scripts/openstack-quickstart-neutron-$br
-fi
-
 #-----------------------------------------
 # setup OpenStack Dashboard (optional)
 #-----------------------------------------
