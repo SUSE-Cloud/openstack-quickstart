@@ -32,8 +32,7 @@ crudini --set /etc/neutron/neutron.conf DEFAULT nova_admin_password $ADMIN_PASSW
 crudini --set /etc/neutron/neutron.conf DEFAULT nova_admin_tenant_name service
 crudini --set /etc/neutron/neutron.conf DEFAULT nova_admin_auth_url $KEYSTONE_PUBLIC_ENDPOINT
 
-crudini --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini linux_bridge physical_interface_mappings physnet1:$TENANT_ETH
-crudini --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini securitygroup firewall_driver neutron.agent.linux.iptables_firewall.IptablesFirewallDriver
+setup_neutron_agent
 crudini --set /etc/neutron/dhcp_agent.ini DEFAULT use_namespaces true
 crudini --set /etc/neutron/l3_agent.ini DEFAULT use_namespaces true
 

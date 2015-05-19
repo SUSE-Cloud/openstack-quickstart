@@ -158,6 +158,16 @@ function setup_nova_compute() {
     crudini --set /etc/nova/nova.conf DEFAULT allow_resize_to_same_host True
 }
 
+function setup_neutron_agent() {
+
+    local c
+    c=/etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini
+
+    crudini --set $c securitygroup enable_ipset False
+    crudini --set $c vxlan enable_vxlan False
+    crudini --set $c linux_bridge physical_interface_mappings physnet1:$TENANT_ETH
+    crudini --set $c securitygroup firewall_driver neutron.agent.linux.iptables_firewall.IptablesFirewallDriver
+}
 
 function disable_firewall_and_enable_forwarding() {
 
