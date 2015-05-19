@@ -34,3 +34,9 @@ node_is_compute=yes
 
 # network bridge devive name
 br=br0
+
+# fixed network VLAN
+FIXED_VLAN=999
+
+# VLAN range for tenant networks
+TENANT_VLAN_RANGE=1000:2000

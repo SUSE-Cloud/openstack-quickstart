@@ -149,6 +149,8 @@ function setup_node_for_nova_compute() {
 function setup_nova_compute() {
 
     crudini --set /etc/nova/nova.conf DEFAULT linuxnet_interface_driver ""
+    crudini --set /etc/nova/nova.conf DEFAULT firewall_driver nova.virt.firewall.NoopFirewallDriver
+    crudini --set /etc/nova/nova.conf DEFAULT allow_resize_to_same_host True
 }
 
 
