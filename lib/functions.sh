@@ -91,6 +91,11 @@ function get_ext_bridge_cidr () {
 }
 
 function setup_ext_bridge_on_boot () {
+    local eth
+
+    eth=$FLOATING_ETH
+    [ -n "$FLOATING_VLAN"] && eth+=".$FLOATING_VLAN"
+
     cat >/etc/sysconfig/network/ifcfg-$1 <<EOF
 BRIDGE='yes'
 BRIDGE_FORWARDDELAY='0'
@@ -101,7 +106,7 @@ USERCONTROL='no'
 POST_UP_SCRIPT='openstack-quickstart-neutron-$1'
 EOF
     cat >/etc/sysconfig/network/scripts/openstack-quickstart-neutron-$1<<EOF
-iptables -t nat -A POSTROUTING -s $3 -o $br -j MASQUERADE
+iptables -t nat -A POSTROUTING -s $3 -o $eth -j MASQUERADE
 EOF
     chmod 755 /etc/sysconfig/network/scripts/openstack-quickstart-neutron-$1
     iptables -t nat -L POSTROUTING | grep -q MASQERADE || /etc/sysconfig/network/scripts/openstack-quickstart-neutron-$1

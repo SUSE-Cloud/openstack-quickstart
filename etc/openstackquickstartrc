@@ -43,3 +43,9 @@ TENANT_VLAN_RANGE=1000:2000
 
 # eth device to use for tenant networks
 TENANT_ETH=eth0
+
+# eth devide to use for floating gateway
+FLOATING_ETH=eth0
+
+# optional: set vlan segmentation id for floating network
+FLOATING_VLAN=
