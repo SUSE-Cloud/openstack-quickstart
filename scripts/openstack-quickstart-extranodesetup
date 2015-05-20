@@ -55,6 +55,8 @@ crudini --set /etc/nova/nova.conf DEFAULT novncproxy_base_url http://$IP:6080/vn
 crudini --set /etc/nova/nova.conf DEFAULT vncserver_listen "0.0.0.0"
 crudini --set /etc/nova/nova.conf DEFAULT vncserver_proxyclient_address $ownip
 
+test -d /var/lib/nova/.ssh && chown -R nova:nova /var/lib/nova/.ssh
+
 for m in cinder heat nova glance neutron ; do
     sed -i -e 's/%SERVICE_TENANT_NAME%/service/' \
            -e "s/%SERVICE_USER%/$m/" \
