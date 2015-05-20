@@ -254,6 +254,8 @@ done
 # configure keystone
 crudini --set /etc/keystone/keystone.conf database connection $DB://keystone:$mpw@$IP/keystone
 crudini --set /etc/keystone/keystone.conf DEFAULT admin_token "$SERVICE_TOKEN"
+crudini --set /etc/keystone/keystone.conf DEFAULT public_workers 2
+crudini --set /etc/keystone/keystone.conf DEFAULT admin_workers 2
 
 /etc/init.d/openstack-keystone restart
 
