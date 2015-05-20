@@ -148,6 +148,8 @@ DATABASES = {
 EODASHDB
     fi
 
+    sed -i -e "s/^DEBUG =.*/DEBUG = False/" $DASHBOARD_LOCAL_SET
+
     if grep -q "^USE_SSL =" $DASHBOARD_LOCAL_SET; then
         sed -i -e "s/^USE_SSL =.*/USE_SSL = False/" $DASHBOARD_LOCAL_SET
     else
