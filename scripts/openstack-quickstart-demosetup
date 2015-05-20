@@ -128,10 +128,20 @@ if [ "x$with_horizon" = "xyes" ]; then
     a2enmod deflate
 
     DASHBOARD_LOCAL_SET=/srv/www/openstack-dashboard/openstack_dashboard/local/local_settings.py
-    if grep -q "^\s*CACHE_BACKEND" $DASHBOARD_LOCAL_SET ; then
-        sed -i "s|^\s*CACHE_BACKEND.*$|CACHE_BACKEND = 'memcached://127.0.0.1:11211/'|" $DASHBOARD_LOCAL_SET
-    else
-        echo "CACHE_BACKEND = 'memcached://127.0.0.1:11211/'" >> $DASHBOARD_LOCAL_SET
+
+    if ! grep -q "django.core.cache.backends.memcached.MemcachedCache" $DASHBOARD_LOCAL_SET ; then
+        cat - >> $DASHBOARD_LOCAL_SET <<EOF
+CACHES = {
+    'BACKEND': 'django.core.cache.backends.memcached.MemcachedCache'
+    'LOCATION': '127.0.0.1:11211',
+}
+EOF
+    fi
+
+    if ! grep -q "^SESSION_ENGINE =" $DASHBOARD_LOCAL_SET ; then
+        cat - >> $DASHBOARD_LOCAL_SET <<EOF
+SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
+EOF
     fi
 
     if [ "$DB" = "postgresql" ] ; then
