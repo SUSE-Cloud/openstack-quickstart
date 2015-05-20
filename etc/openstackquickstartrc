@@ -49,3 +49,9 @@ FLOATING_ETH=eth0
 
 # optional: set vlan segmentation id for floating network
 FLOATING_VLAN=
+
+# optional: specify floating ip range
+floatingpool=
+
+# optional: specify --gateway x.x.x.x
+floatinggateway=
