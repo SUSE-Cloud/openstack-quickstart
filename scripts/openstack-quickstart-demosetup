@@ -176,6 +176,7 @@ EOSEC
 
     start_and_enable_service openstack-nova-console
     start_and_enable_service openstack-nova-consoleauth
+    start_and_enable_service openstack-nova-novncproxy
 fi
 
 #-----------------------------------------
