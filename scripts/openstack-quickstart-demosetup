@@ -269,9 +269,6 @@ fi
 if [ -e /etc/init.d/boot.apparmor ]; then
     stop_and_disable_service boot.apparmor
 fi
-if [ -e /etc/init.d/dnsmasq ]; then
-    stop_and_disable_service dnsmasq
-fi
 
 #-----------------------------------------
 ## setup neutron configuration
