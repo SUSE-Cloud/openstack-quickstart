@@ -10,7 +10,6 @@ for i in /etc/init.d/{openstack-*,rabbitmq-server,memcached,libvirtd} ; do
 	$i stop
 	insserv -r $i
 done
-killall dnsmasq
 killall postmaster
 /etc/init.d/postgresql restart
 cd /
