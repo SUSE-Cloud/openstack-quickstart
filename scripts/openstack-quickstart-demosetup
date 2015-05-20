@@ -181,12 +181,6 @@ EOSEC
     run_as wwwrun "cd /srv/www/openstack-dashboard; umask 0027; python -m 'manage' syncdb --noinput"
 
     start_and_enable_service apache2
-
-    # Start nova related services
-
-    start_and_enable_service openstack-nova-console
-    start_and_enable_service openstack-nova-consoleauth
-    start_and_enable_service openstack-nova-novncproxy
 fi
 
 #-----------------------------------------
@@ -404,6 +398,13 @@ fi
 
 if [ "x$with_tempest" = "xyes" ]; then
     start_and_enable_service openstack-nova-objectstore
+fi
+
+if [ "x$with_horizon" = "xyes" ]; then
+    # Start nova related services
+    start_and_enable_service openstack-nova-console
+    start_and_enable_service openstack-nova-consoleauth
+    start_and_enable_service openstack-nova-novncproxy
 fi
 
 #-----------------------------------------
