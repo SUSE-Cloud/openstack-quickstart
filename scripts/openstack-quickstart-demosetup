@@ -373,8 +373,11 @@ done
 ext_bridge_name=`get_ext_bridge_name`
 ext_bridge_ip=`get_ext_bridge_ip`/`get_ext_bridge_ip_prefix`
 ext_bridge_cidr=`get_ext_bridge_cidr`
-setup_ext_bridge_on_boot $ext_bridge_name $ext_bridge_ip $ext_bridge_cidr
-ifup $ext_bridge_name
+
+if [ x$FLOATING_VLAN = x ]; then
+    setup_ext_bridge_on_boot $ext_bridge_name $ext_bridge_ip $ext_bridge_cidr
+    ifup $ext_bridge_name
+fi
 #-----------------------------------------
 ## end neutron setup configuration
 #---------------------------------------
