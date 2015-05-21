@@ -156,6 +156,15 @@ function setup_nova_compute() {
     crudini --set /etc/nova/nova.conf DEFAULT linuxnet_interface_driver ""
     crudini --set /etc/nova/nova.conf DEFAULT firewall_driver nova.virt.firewall.NoopFirewallDriver
     crudini --set /etc/nova/nova.conf DEFAULT allow_resize_to_same_host True
+
+    if grep -q vmx /proc/cpuinfo; then
+        crudini --set /etc/nova/nova.conf libvirt cpu_mode custom
+        if grep -q avx2 /proc/cpuinfo; then
+            crudini --set /etc/nova/nova.conf libvirt cpu_model "SandyBridge,+avx,+avx2"
+        else
+            crudini --set /etc/nova/nova.conf libvirt cpu_model "SandyBridge,+avx"
+        fi
+    fi
 }
 
 function setup_neutron_agent() {
