@@ -122,7 +122,8 @@ function setup_node_for_nova_compute() {
     fi
 
     crudini --set /etc/libvirt/libvirtd.conf "" listen_tcp 1
-    crudini --set /etc/libvirt/libvirtd.conf "" listen_auth_tcp none
+    crudini --set /etc/libvirt/libvirtd.conf "" listen_tls 0
+    #crudini --set /etc/libvirt/libvirtd.conf "" listen_auth_tcp none
     #crudini --set /etc/libvirt/libvirtd.conf "" listen_addr $MY_ADMINIP
 
     grep -q -e vmx -e svm /proc/cpuinfo || MODE=lxc
