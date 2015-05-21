@@ -159,6 +159,7 @@ EODASHDB
     fi
 
     sed -i -e "s/^DEBUG =.*/DEBUG = False/" $DASHBOARD_LOCAL_SET
+    sed -i -e "s/^OPENSTACK_HOST = .*/OPENSTACK_HOST = \"$IP\"/" $DASHBOARD_LOCAL_SET
 
     if grep -q "^USE_SSL =" $DASHBOARD_LOCAL_SET; then
         sed -i -e "s/^USE_SSL =.*/USE_SSL = False/" $DASHBOARD_LOCAL_SET
