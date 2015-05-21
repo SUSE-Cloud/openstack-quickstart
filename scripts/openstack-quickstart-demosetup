@@ -466,12 +466,12 @@ else
 fi
 
 setcreds admin $pw
-nova secgroup-add-rule default icmp -1 -1 0.0.0.0/0 # to allow ping
-nova secgroup-add-rule default tcp 22 22 0.0.0.0/0 # to allow only SSH or do
-nova secgroup-add-rule default tcp 1 65535 0.0.0.0/0 # to allow all TCP
-nova secgroup-add-rule default udp 1 65535 0.0.0.0/0 # and all UDP
-nova secgroup-list-rules default # lists the rules
-
+for tenant in admin demo ; do
+    nova --os-tenant-name $tenant secgroup-add-rule default icmp -1 -1 0.0.0.0/0 # to allow ping
+    nova --os-tenant-name $tenant secgroup-add-rule default tcp 22 22 0.0.0.0/0 # to allow only SSH or do
+    nova --os-tenant-name $tenant secgroup-add-rule default tcp 1 65535 0.0.0.0/0 # to allow all TCP
+    nova --os-tenant-name $tenant secgroup-add-rule default udp 1 65535 0.0.0.0/0 # and all UDP
+done
 
 #-----------------------------------------
 # setup tempest configuration
