@@ -159,7 +159,7 @@ function setup_nova_compute() {
 
     if grep -q vmx /proc/cpuinfo; then
         crudini --set /etc/nova/nova.conf libvirt cpu_mode custom
-        crudini --set /etc/nova/nova.conf libvirt cpu_model "SandyBridge,+avx"
+        crudini --set /etc/nova/nova.conf libvirt cpu_model "SandyBridge"
     fi
 }
 
