@@ -50,6 +50,8 @@ fi
 # Set up the database
 if [ "$DB" = "postgresql" ] ; then
     DATADIR=/var/lib/pgsql/data
+    # increase max connections for multinode setup (this needs a restart)
+    sed -i "s/^max_connections =.*/max_connections=1000/g" $DATADIR/postgresql.conf
     # No database exists? Start and Stop to create the initial files
     if  [ ! -f $DATADIR/PG_VERSION ]; then
         start_and_enable_service $DB
