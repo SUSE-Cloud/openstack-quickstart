@@ -120,17 +120,17 @@ if [[ "$ENABLED_SERVICES" =~ "n-cpu" ]]; then
             --adminurl "http://$SERVICE_HOST:\$(compute_port)s/v2/\$(tenant_id)s" \
             --internalurl "http://$SERVICE_HOST:\$(compute_port)s/v2/\$(tenant_id)s"
 
-        # Create Nova V3 Services
-        NOVA_V3_SERVICE=$(get_id keystone service-create \
-            --name=nova \
-            --type=computev3 \
-            --description="Nova Compute Service V3")
+        # Create Nova V2.1 Services
+        NOVA_V21_SERVICE=$(get_id keystone service-create \
+            --name=novav21 \
+            --type=computev21 \
+            --description="Nova Compute Service V2.1")
         keystone endpoint-create \
             --region RegionOne \
-            --service_id $NOVA_V3_SERVICE \
-            --publicurl "http://$SERVICE_HOST:8774/v3" \
-            --adminurl "http://$SERVICE_HOST:8774/v3" \
-            --internalurl "http://$SERVICE_HOST:8774/v3"
+            --service_id $NOVA_V21_SERVICE \
+            --publicurl "http://$SERVICE_HOST:8774/v2.1/\$(tenant_id)s" \
+            --adminurl "http://$SERVICE_HOST:8774/v2.1/\$(tenant_id)s" \
+            --internalurl "http://$SERVICE_HOST:8774/v2.1/\$(tenant_id)s"
     fi
 
     # Nova needs ResellerAdmin role to download images when accessing
