@@ -172,7 +172,7 @@ EODASHDB
     fi
 
     if grep -q "^ALLOWED_HOSTS =" $DASHBOARD_LOCAL_SET; then
-        sed -i -e "s,^ALLOWED_HOSTS =.*,ALLOWED_HOSTS = ['*', ]" $DASHBOARD_LOCAL_SET
+        sed -i -e "s/^ALLOWED_HOSTS =.*,ALLOWED_HOSTS = ['*']/" $DASHBOARD_LOCAL_SET
     else
         echo "ALLOWED_HOSTS = ['*', ]" >> $DASHBOARD_LOCAL_SET
     fi
