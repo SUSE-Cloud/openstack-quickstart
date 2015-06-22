@@ -377,3 +377,30 @@ if [[ "$ENABLED_SERVICES" =~ "ceilometer-api" ]]; then
             $CEILOMETER_SERVICE
     fi
 fi
+
+# Manila
+if [[ "$ENABLED_SERVICES" =~ "m-api" ]]; then
+    MANILA_SERVICE_PROTOCOL=http
+    MANILA_SERVICE_HOST=$SERVICE_HOST
+    MANILA_SERVICE_PORT=${MANILA_SERVICE_PORT:-8786}
+    MANILA_USER=$($openstack user create \
+                             --password="$SERVICE_PASSWORD" \
+                             --project=$SERVICE_TENANT \
+                             --email=manila@example.com \
+                             manila \
+                             -f value -c id)
+    $openstack role add \
+               --project $SERVICE_TENANT \
+               --user $MANILA_USER \
+               $ADMIN_ROLE
+    MANILA_SERVICE=$($openstack service create \
+                                --type=share \
+                                --description="Manila Shared Filesystem Service" \
+                                manila -f value -c id)
+    $openstack endpoint create \
+               --region RegionOne \
+               --publicurl "$MANILA_SERVICE_PROTOCOL://$MANILA_SERVICE_HOST:$MANILA_SERVICE_PORT/v1/\$(tenant_id)s" \
+               --adminurl "$MANILA_SERVICE_PROTOCOL://$MANILA_SERVICE_HOST:$MANILA_SERVICE_PORT/v1/\$(tenant_id)s" \
+               --internalurl "$MANILA_SERVICE_PROTOCOL://$MANILA_SERVICE_HOST:$MANILA_SERVICE_PORT/v1/\$(tenant_id)s" \
+               $MANILA_SERVICE
+fi
