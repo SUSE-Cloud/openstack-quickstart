@@ -208,7 +208,9 @@ done
 ## setup glance configuration
 #-----------------------------------------
 
+crudini --set /etc/glance/glance-api.conf DEFAULT workers "1"
 crudini --set /etc/glance/glance-api.conf database connection "$DB://nova:$mpw@$IP/glance"
+crudini --set /etc/glance/glance-registry.conf DEFAULT workers "1"
 crudini --set /etc/glance/glance-registry.conf database connection "$DB://nova:$mpw@$IP/glance"
 
 #-----------------------------------------
@@ -245,6 +247,7 @@ fi
 
 # configure cinder
 crudini --set /etc/cinder/cinder.conf DEFAULT my_ip "$IP"
+crudini --set /etc/cinder/cinder.conf DEFAULT osapi_volume_workers "1"
 crudini --set /etc/cinder/cinder.conf database connection "$DB://cinder:${mpw}@${IP}/cinder"
 crudini --set /etc/cinder/cinder.conf keymgr fixed_key "$FIXED_KEY"
 
@@ -428,6 +431,8 @@ fi
 
 crudini --set /etc/heat/heat.conf database connection $DB://heat:$mpw@$IP/heat
 crudini --set /etc/heat/heat.conf DEFAULT deferred_auth_method trusts
+crudini --set /etc/heat/heat.conf DEFAULT num_engine_workers "1"
+crudini --set /etc/heat/heat.conf heat_api workers "1"
 
 
 HEAT_DOMAIN_ID=$(openstack --os-token $SERVICE_TOKEN --os-url=$KEYSTONE_PUBLIC_ENDPOINT_V3 \
