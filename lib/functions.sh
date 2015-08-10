@@ -103,13 +103,13 @@ BRIDGE_STP='off'
 IPADDR='$2'
 STARTMODE='onboot'
 USERCONTROL='no'
-POST_UP_SCRIPT='openstack-quickstart-neutron-$1'
+POST_UP_SCRIPT='wicked:openstack-quickstart-neutron-$1'
 EOF
     cat >/etc/sysconfig/network/scripts/openstack-quickstart-neutron-$1<<EOF
 iptables -t nat -A POSTROUTING -s $3 -o $eth -j MASQUERADE
 EOF
     chmod 755 /etc/sysconfig/network/scripts/openstack-quickstart-neutron-$1
-    iptables -t nat -L POSTROUTING | grep -q MASQERADE || /etc/sysconfig/network/scripts/openstack-quickstart-neutron-$1
+    iptables -t nat -L POSTROUTING | grep -q MASQUERADE || /etc/sysconfig/network/scripts/openstack-quickstart-neutron-$1
 }
 
 
