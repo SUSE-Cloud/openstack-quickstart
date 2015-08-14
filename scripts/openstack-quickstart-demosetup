@@ -28,6 +28,11 @@ if [ "x$with_tempest" = "xyes" ]; then
         openstack-tempest-test
 fi
 
+# TODO: remove when manila packages are part of patterns!
+install_packages openstack-manila openstack-manila-api \
+                 openstack-manila-scheduler openstack-manila-share \
+                 python-manila python-manilaclient
+
 if [ "$DB" = "postgresql" ] ; then
     if grep -q "SUSE Linux Enterprise Server 11" /etc/SuSE-release; then
         install_packages postgresql91-server python-psycopg2
@@ -72,7 +77,7 @@ if [ "$DB" = "postgresql" ] ; then
     fi
 else
     echo | mysql -u root || pwquery=-p
-    for DBNAME in nova cinder keystone glance horizon neutron ; do
+    for DBNAME in nova cinder keystone glance horizon neutron manila; do
         echo "
         set global character_set_server=latin1;
         set session character_set_server=latin1;
@@ -96,7 +101,7 @@ start_and_enable_service open-iscsi
 # Set up the database
 if [ "$DB" = "postgresql" ] ; then
     sudo -u postgres dropdb keystone || true # needed for keystone_data.sh
-    for DBNAME in nova cinder keystone glance horizon heat neutron ; do
+    for DBNAME in nova cinder keystone glance horizon heat neutron manila; do
         # use ALTER if CREATE fails: the role probably already exists
         # in that case
         sudo -u postgres psql -c "CREATE ROLE $DBNAME PASSWORD '$mpw' LOGIN;" || \
@@ -194,7 +199,7 @@ fi
 
 for c in /etc/glance/glance-api.conf /etc/glance/glance-registry.conf \
     /etc/neutron/neutron.conf /etc/cinder/cinder.conf \
-    /etc/heat/heat.conf /etc/nova/nova.conf ; do
+    /etc/heat/heat.conf /etc/nova/nova.conf /etc/manila/manila.conf; do
 
     setup_keystone_authtoken $c
 done
@@ -203,7 +208,9 @@ done
 ## setup glance configuration
 #-----------------------------------------
 
+crudini --set /etc/glance/glance-api.conf DEFAULT workers "1"
 crudini --set /etc/glance/glance-api.conf database connection "$DB://nova:$mpw@$IP/glance"
+crudini --set /etc/glance/glance-registry.conf DEFAULT workers "1"
 crudini --set /etc/glance/glance-registry.conf database connection "$DB://nova:$mpw@$IP/glance"
 
 #-----------------------------------------
@@ -240,6 +247,7 @@ fi
 
 # configure cinder
 crudini --set /etc/cinder/cinder.conf DEFAULT my_ip "$IP"
+crudini --set /etc/cinder/cinder.conf DEFAULT osapi_volume_workers "1"
 crudini --set /etc/cinder/cinder.conf database connection "$DB://cinder:${mpw}@${IP}/cinder"
 crudini --set /etc/cinder/cinder.conf keymgr fixed_key "$FIXED_KEY"
 
@@ -248,7 +256,8 @@ if [ "x$with_tempest" = "xyes" ]; then
     crudini --set /etc/cinder/cinder.conf DEFAULT lvm_type thin
 fi
 
-for m in cinder heat nova glance neutron ; do
+
+for m in cinder heat nova glance neutron manila; do
     sed -i -e 's/%SERVICE_TENANT_NAME%/service/' \
            -e "s/%SERVICE_USER%/$m/" \
            -e "s/%SERVICE_PASSWORD%/$ADMIN_PASSWORD/" \
@@ -267,7 +276,7 @@ crudini --set /etc/keystone/keystone.conf DEFAULT admin_workers 2
 sleep 2
 
 keystone_data=/usr/lib/devstack/keystone_data.sh
-ENABLED_SERVICES="g-api,g-reg,key,n-api,n-cpu,n-net,n-vol,c-api,n-sch,n-novnc,n-xvnc,q-svc,heat,mysql,rabbit"
+ENABLED_SERVICES="g-api,g-reg,key,n-api,n-cpu,n-net,n-vol,c-api,n-sch,n-novnc,n-xvnc,q-svc,heat,m-api,mysql,rabbit"
 if [ "x$with_horizon" = "xyes" ]; then
     ENABLED_SERVICES+=",horizon"
 fi
@@ -422,6 +431,8 @@ fi
 
 crudini --set /etc/heat/heat.conf database connection $DB://heat:$mpw@$IP/heat
 crudini --set /etc/heat/heat.conf DEFAULT deferred_auth_method trusts
+crudini --set /etc/heat/heat.conf DEFAULT num_engine_workers "1"
+crudini --set /etc/heat/heat.conf heat_api workers "1"
 
 
 HEAT_DOMAIN_ID=$(openstack --os-token $SERVICE_TOKEN --os-url=$KEYSTONE_PUBLIC_ENDPOINT_V3 \
@@ -481,6 +492,50 @@ for tenant in admin demo ; do
     nova --os-tenant-name $tenant secgroup-add-rule default tcp 1 65535 0.0.0.0/0 # to allow all TCP
     nova --os-tenant-name $tenant secgroup-add-rule default udp 1 65535 0.0.0.0/0 # and all UDP
 done
+
+#-----------------------------------------
+# setup OpenStack Manila
+#-----------------------------------------
+c="/etc/manila/manila.conf"
+setup_messaging_client $c
+crudini --set $c DEFAULT my_ip "$IP"
+crudini --set $c DEFAULT default_share_type "default"
+crudini --set $c database connection "$DB://manila:${mpw}@${IP}/manila"
+crudini --set $c identity uri $KEYSTONE_PUBLIC_ENDPOINT
+crudini --set $c DEFAULT nova_admin_username nova
+crudini --set $c DEFAULT nova_admin_password $ADMIN_PASSWORD
+crudini --set $c DEFAULT nova_admin_tenant_id $SERVICE_TENANT_ID
+crudini --set $c DEFAULT nova_admin_auth_url $KEYSTONE_PUBLIC_ENDPOINT
+
+crudini --set $c DEFAULT neutron_admin_username neutron
+crudini --set $c DEFAULT neutron_admin_password $ADMIN_PASSWORD
+crudini --set $c DEFAULT neutron_admin_project_name $SERVICE_TENANT_ID
+crudini --set $c DEFAULT neutron_admin_auth_url $KEYSTONE_PUBLIC_ENDPOINT
+
+crudini --set $c DEFAULT cinder_admin_username cinder
+crudini --set $c DEFAULT cinder_admin_password $ADMIN_PASSWORD
+crudini --set $c DEFAULT cinder_admin_tenant_name $SERVICE_TENANT_ID
+crudini --set $c DEFAULT cinder_admin_auth_url $KEYSTONE_PUBLIC_ENDPOINT
+
+nova flavor-create manila-service-image-flavor 100 256 0 1
+
+# security rules for manila service VM
+MANILA_SERVICE_SECGROUP="manila-service"
+nova secgroup-create $MANILA_SERVICE_SECGROUP "$MANILA_SERVICE_SECGROUP desc"
+nova secgroup-add-rule $MANILA_SERVICE_SECGROUP icmp -1 -1 0.0.0.0/0
+nova secgroup-add-rule $MANILA_SERVICE_SECGROUP tcp 22 22 0.0.0.0/0
+nova secgroup-add-rule $MANILA_SERVICE_SECGROUP tcp 2049 2049 0.0.0.0/0
+nova secgroup-add-rule $MANILA_SERVICE_SECGROUP udp 2049 2049 0.0.0.0/0
+nova secgroup-add-rule $MANILA_SERVICE_SECGROUP udp 445 445 0.0.0.0/0
+nova secgroup-add-rule $MANILA_SERVICE_SECGROUP tcp 445 445 0.0.0.0/0
+nova secgroup-add-rule $MANILA_SERVICE_SECGROUP tcp 137 139 0.0.0.0/0
+nova secgroup-add-rule $MANILA_SERVICE_SECGROUP udp 137 139 0.0.0.0/0
+
+start_and_enable_service openstack-manila-api
+start_and_enable_service openstack-manila-scheduler
+start_and_enable_service openstack-manila-share
+
+manila type-create default true
 
 #-----------------------------------------
 # setup tempest configuration
