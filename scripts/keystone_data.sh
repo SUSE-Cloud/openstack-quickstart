@@ -35,49 +35,60 @@ export SERVICE_TOKEN=$SERVICE_TOKEN
 export SERVICE_ENDPOINT=$SERVICE_ENDPOINT
 SERVICE_TENANT_NAME=${SERVICE_TENANT_NAME:-service}
 
-function get_id () {
-    echo `"$@" | awk '/ id / { print $4 }'`
-}
+# Needed to bootstrap keystone with openstack client
+KEYSTONE_BOOTSTRAP_PARAMS=" --os-token $SERVICE_TOKEN --os-url $SERVICE_ENDPOINT"
 
+# openstacl client command
+openstack="openstack $KEYSTONE_BOOTSTRAP_PARAMS"
 
 # Tenants
 # -------
 
-ADMIN_TENANT=$(get_id keystone tenant-create --name=admin)
-SERVICE_TENANT=$(get_id keystone tenant-create --name=$SERVICE_TENANT_NAME)
-DEMO_TENANT=$(get_id keystone tenant-create --name=demo)
-INVIS_TENANT=$(get_id keystone tenant-create --name=invisible_to_admin)
+ADMIN_TENANT=$($openstack project create \
+                         -c id -f value admin)
+SERVICE_TENANT=$($openstack project create \
+                           -c id -f value $SERVICE_TENANT_NAME)
+DEMO_TENANT=$($openstack project create \
+                        -c id -f value demo)
+INVIS_TENANT=$($openstack project create \
+                         -c id -f value invisible_to_admin)
 
 
 # Users
 # -----
 
-ADMIN_USER=$(get_id keystone user-create --name=admin \
-                                         --pass="$ADMIN_PASSWORD" \
-                                         --email=admin@example.com)
-DEMO_USER=$(get_id keystone user-create --name=demo \
-                                        --pass="$ADMIN_PASSWORD" \
-                                        --email=demo@example.com)
+ADMIN_USER=$($openstack user create -c id -f value \
+                                         --password="$ADMIN_PASSWORD" \
+                                         --email=admin@example.com \
+                                         admin)
+DEMO_USER=$($openstack user create -c id -f value \
+                                        --password="$ADMIN_PASSWORD" \
+                                        --email=admin@example.com \
+                                        demo)
 
 
 # Roles
 # -----
 
-ADMIN_ROLE=$(get_id keystone role-create --name=admin)
+ADMIN_ROLE=$($openstack role create -c id -f value admin)
 # ANOTHER_ROLE demonstrates that an arbitrary role may be created and used
 # TODO(sleepsonthefloor): show how this can be used for rbac in the future!
-ANOTHER_ROLE=$(get_id keystone role-create --name=anotherrole)
+ANOTHER_ROLE=$($openstack role create -c id -f value anotherrole)
 
 
 # Add Roles to Users in Tenants
-keystone user-role-add --user-id $ADMIN_USER --role-id $ADMIN_ROLE --tenant-id $ADMIN_TENANT
-keystone user-role-add --user-id $ADMIN_USER --role-id $ADMIN_ROLE --tenant-id $DEMO_TENANT
-keystone user-role-add --user-id $DEMO_USER --role-id $ANOTHER_ROLE --tenant-id $DEMO_TENANT
+$openstack role add --user $ADMIN_USER \
+          --project $ADMIN_TENANT $ADMIN_ROLE
+$openstack role add --user $ADMIN_USER \
+          --project $DEMO_TENANT $ADMIN_ROLE
+$openstack role add --user $DEMO_USER \
+          --project $DEMO_TENANT $ANOTHER_ROLE
+
 
 # The Member role is used by Horizon and Swift so we need to keep it:
-MEMBER_ROLE=$(get_id keystone role-create --name=Member)
-keystone user-role-add --user-id $DEMO_USER --role-id $MEMBER_ROLE --tenant-id $DEMO_TENANT
-keystone user-role-add --user-id $DEMO_USER --role-id $MEMBER_ROLE --tenant-id $INVIS_TENANT
+MEMBER_ROLE=$($openstack role create -c id -f value Member)
+$openstack role add --user $DEMO_USER --project $DEMO_TENANT $MEMBER_ROLE
+$openstack role add --user $DEMO_USER --project $INVIS_TENANT $MEMBER_ROLE
 
 
 # Services
@@ -85,52 +96,52 @@ keystone user-role-add --user-id $DEMO_USER --role-id $MEMBER_ROLE --tenant-id $
 
 # Keystone
 if [[ "$KEYSTONE_CATALOG_BACKEND" = 'sql' ]]; then
-	KEYSTONE_SERVICE=$(get_id keystone service-create \
-		--name=keystone \
+	KEYSTONE_SERVICE=$($openstack service create -c id -f value \
 		--type=identity \
-		--description="Keystone Identity Service")
-	keystone endpoint-create \
+		--description="Keystone Identity Service" \
+                keystone)
+	$openstack endpoint create \
 	    --region RegionOne \
-		--service_id $KEYSTONE_SERVICE \
 		--publicurl "http://$SERVICE_HOST:\$(public_port)s/v2.0" \
 		--adminurl "http://$SERVICE_HOST:\$(admin_port)s/v2.0" \
-		--internalurl "http://$SERVICE_HOST:\$(public_port)s/v2.0"
+		--internalurl "http://$SERVICE_HOST:\$(public_port)s/v2.0" \
+                $KEYSTONE_SERVICE
 fi
 
 # Nova
 if [[ "$ENABLED_SERVICES" =~ "n-cpu" ]]; then
-    NOVA_USER=$(get_id keystone user-create \
-        --name=nova \
-        --pass="$SERVICE_PASSWORD" \
-        --tenant-id $SERVICE_TENANT \
-        --email=nova@example.com)
-    keystone user-role-add \
-        --tenant-id $SERVICE_TENANT \
-        --user-id $NOVA_USER \
-        --role-id $ADMIN_ROLE
+    NOVA_USER=$($openstack user create -c id -f value \
+        --password="$SERVICE_PASSWORD" \
+        --project $SERVICE_TENANT \
+        --email=nova@example.com \
+        nova)
+    $openstack role add \
+        --project $SERVICE_TENANT \
+        --user $NOVA_USER \
+        $ADMIN_ROLE
     if [[ "$KEYSTONE_CATALOG_BACKEND" = 'sql' ]]; then
-        NOVA_SERVICE=$(get_id keystone service-create \
-            --name=nova \
+        NOVA_SERVICE=$($openstack service create -c id -f value \
             --type=compute \
-            --description="Nova Compute Service")
-        keystone endpoint-create \
+            --description="Nova Compute Service" \
+            nova)
+        $openstack endpoint create \
             --region RegionOne \
-            --service_id $NOVA_SERVICE \
-            --publicurl "http://$SERVICE_HOST:\$(compute_port)s/v2/\$(tenant_id)s" \
-            --adminurl "http://$SERVICE_HOST:\$(compute_port)s/v2/\$(tenant_id)s" \
-            --internalurl "http://$SERVICE_HOST:\$(compute_port)s/v2/\$(tenant_id)s"
+            --publicurl "http://$SERVICE_HOST:8774/v2/\$(tenant_id)s" \
+            --adminurl "http://$SERVICE_HOST:8774/v2/\$(tenant_id)s" \
+            --internalurl "http://$SERVICE_HOST:8774/v2/\$(tenant_id)s" \
+            $NOVA_SERVICE
 
-        # Create Nova V3 Services
-        NOVA_V3_SERVICE=$(get_id keystone service-create \
-            --name=nova \
-            --type=computev3 \
-            --description="Nova Compute Service V3")
-        keystone endpoint-create \
+        # Create Nova V2.1 Services
+        NOVA_V21_SERVICE=$($openstack service create -c id -f value \
+            --type=compute \
+            --description="Nova Compute Service V2.1" \
+            nova)
+        $openstack endpoint create \
             --region RegionOne \
-            --service_id $NOVA_V3_SERVICE \
-            --publicurl "http://$SERVICE_HOST:8774/v3" \
-            --adminurl "http://$SERVICE_HOST:8774/v3" \
-            --internalurl "http://$SERVICE_HOST:8774/v3"
+            --publicurl "http://$SERVICE_HOST:8774/v2.1/\$(tenant_id)s" \
+            --adminurl "http://$SERVICE_HOST:8774/v2.1/\$(tenant_id)s" \
+            --internalurl "http://$SERVICE_HOST:8774/v2.1/\$(tenant_id)s" \
+            $NOVA_V21_SERVICE
     fi
 
     # Nova needs ResellerAdmin role to download images when accessing
@@ -138,11 +149,8 @@ if [[ "$ENABLED_SERVICES" =~ "n-cpu" ]]; then
     # to act as an admin for their tenant, but ResellerAdmin is needed
     # for a user to act as any tenant. The name of this role is also
     # configurable in swift-proxy.conf
-    RESELLER_ROLE=$(get_id keystone role-create --name=ResellerAdmin)
-    keystone user-role-add \
-        --tenant-id $SERVICE_TENANT \
-        --user-id $NOVA_USER \
-        --role-id $RESELLER_ROLE
+    RESELLER_ROLE=$($openstack role create -c id -f value ResellerAdmin)
+    $openstack role add --user $NOVA_USER --project $SERVICE_TENANT $RESELLER_ROLE
 fi
 
 # Heat
@@ -150,211 +158,196 @@ if [[ "$ENABLED_SERVICES" =~ "heat" ]]; then
     HEAT_API_CFN_PORT=${HEAT_API_CFN_PORT:-8000}
     HEAT_API_PORT=${HEAT_API_PORT:-8004}
 
-    HEAT_USER=$(get_id keystone user-create --name=heat \
-                                              --pass="$SERVICE_PASSWORD" \
-                                              --tenant-id $SERVICE_TENANT \
-                                              --email=heat@example.com)
-    keystone user-role-add --tenant-id $SERVICE_TENANT \
-                           --user-id $HEAT_USER \
-                           --role-id $ADMIN_ROLE
+    HEAT_USER=$($openstack user create -c id -f value \
+                          --password="$SERVICE_PASSWORD" \
+                          --project $SERVICE_TENANT \
+                          --email=heat@example.com \
+                          heat)
+    $openstack role add --user $HEAT_USER --project $SERVICE_TENANT $ADMIN_ROLE
 
     # heat_stack_user role is for users created by Heat
-    STACK_USER_ROLE=$(get_id keystone role-create --name=heat_stack_user)
+    STACK_USER_ROLE=$($openstack role create -c id -f value heat_stack_user)
 
     # heat_stack_owner role is given to users who create Heat Stacks
-    STACK_OWNER_ROLE=$(get_id keystone role-create --name=heat_stack_owner)
+    STACK_OWNER_ROLE=$($openstack role create -c id -f value heat_stack_owner)
 
     # Give the role to the demo and admin users so they can create stacks
     # in either of the projects created by devstack
-    keystone user-role-add \
-        --tenant-id $DEMO_TENANT --user-id $DEMO_USER --role-id $STACK_OWNER_ROLE
-
-    keystone user-role-add \
-        --tenant-id $DEMO_TENANT --user-id $ADMIN_USER --role-id $STACK_OWNER_ROLE
-
-    keystone user-role-add \
-        --tenant-id $ADMIN_TENANT --user-id $ADMIN_USER --role-id $STACK_OWNER_ROLE
+    $openstack role add --user $DEMO_USER --project $DEMO_TENANT $STACK_OWNER_ROLE
+    $openstack role add --user $ADMIN_USER --project $DEMO_TENANT $STACK_OWNER_ROLE
+    $openstack role add --user $ADMIN_USER --project $ADMIN_TENANT $STACK_OWNER_ROLE
 
     if [[ "$KEYSTONE_CATALOG_BACKEND" = 'sql' ]]; then
-        HEAT_CFN_SERVICE=$(get_id keystone service-create \
-            --name=heat-cfn \
+        HEAT_CFN_SERVICE=$($openstack service create -c id -f value \
             --type=cloudformation \
-            --description="Heat CloudFormation Service")
+            --description="Heat CloudFormation Service" \
+            heat-cfn)
 
-        keystone endpoint-create \
+        $openstack endpoint create \
             --region RegionOne \
-            --service_id $HEAT_CFN_SERVICE \
             --publicurl "http://$SERVICE_HOST:$HEAT_API_CFN_PORT/v1" \
             --adminurl "http://$SERVICE_HOST:$HEAT_API_CFN_PORT/v1" \
-            --internalurl "http://$SERVICE_HOST:$HEAT_API_CFN_PORT/v1"
+            --internalurl "http://$SERVICE_HOST:$HEAT_API_CFN_PORT/v1" \
+            $HEAT_CFN_SERVICE
 
-        HEAT_SERVICE=$(get_id keystone service-create \
-            --name=heat \
+        HEAT_SERVICE=$($openstack service create -c id -f value \
             --type=orchestration \
-            --description="Heat Service")
+            --description="Heat Service" \
+            heat)
 
-        keystone endpoint-create \
+        $openstack endpoint create \
             --region RegionOne \
-            --service_id $HEAT_SERVICE \
             --publicurl "http://$SERVICE_HOST:$HEAT_API_PORT/v1/\$(tenant_id)s" \
             --adminurl "http://$SERVICE_HOST:$HEAT_API_PORT/v1/\$(tenant_id)s" \
-            --internalurl "http://$SERVICE_HOST:$HEAT_API_PORT/v1/\$(tenant_id)s"
+            --internalurl "http://$SERVICE_HOST:$HEAT_API_PORT/v1/\$(tenant_id)s" \
+            $HEAT_SERVICE
     fi
 fi
 
 # Glance
 if [[ "$ENABLED_SERVICES" =~ "g-api" ]]; then
-    GLANCE_USER=$(get_id keystone user-create \
-        --name=glance \
-        --pass="$SERVICE_PASSWORD" \
-        --tenant-id $SERVICE_TENANT \
-        --email=glance@example.com)
-    keystone user-role-add \
-        --tenant-id $SERVICE_TENANT \
-        --user-id $GLANCE_USER \
-        --role-id $ADMIN_ROLE
+    GLANCE_USER=$($openstack user create -c id -f value \
+        --password="$SERVICE_PASSWORD" \
+        --project $SERVICE_TENANT \
+        --email=glance@example.com \
+        glance)
+    $openstack role add --user $GLANCE_USER --project $SERVICE_TENANT $ADMIN_ROLE
+
     if [[ "$KEYSTONE_CATALOG_BACKEND" = 'sql' ]]; then
-        GLANCE_SERVICE=$(get_id keystone service-create \
-            --name=glance \
+        GLANCE_SERVICE=$($openstack service create -c id -f value \
             --type=image \
-            --description="Glance Image Service")
-        keystone endpoint-create \
+            --description="Glance Image Service" \
+            glance)
+        $openstack endpoint create \
             --region RegionOne \
-            --service_id $GLANCE_SERVICE \
             --publicurl "http://$SERVICE_HOST:9292" \
             --adminurl "http://$SERVICE_HOST:9292" \
-            --internalurl "http://$SERVICE_HOST:9292"
+            --internalurl "http://$SERVICE_HOST:9292" \
+            $GLANCE_SERVICE
     fi
 fi
 
 # Swift
 if [[ "$ENABLED_SERVICES" =~ "swift" ]]; then
-    SWIFT_USER=$(get_id keystone user-create \
-        --name=swift \
-        --pass="$SERVICE_PASSWORD" \
-        --tenant-id $SERVICE_TENANT \
-        --email=swift@example.com)
-    keystone user-role-add \
-        --tenant-id $SERVICE_TENANT \
-        --user-id $SWIFT_USER \
-        --role-id $ADMIN_ROLE
+    SWIFT_USER=$($openstack user create -c id -f value \
+        --password="$SERVICE_PASSWORD" \
+        --project $SERVICE_TENANT \
+        --email=swift@example.com \
+        swift)
+    $openstack role add --user $SWIFT_USER --project $SERVICE_TENANT $ADMIN_ROLE
+
     if [[ "$KEYSTONE_CATALOG_BACKEND" = 'sql' ]]; then
-        SWIFT_SERVICE=$(get_id keystone service-create \
-            --name=swift \
+        SWIFT_SERVICE=$($openstack service create -c id -f value \
             --type="object-store" \
-            --description="Swift Service")
-        keystone endpoint-create \
+            --description="Swift Service" \
+            swift)
+        $openstack endpoint create \
             --region RegionOne \
-            --service_id $SWIFT_SERVICE \
             --publicurl "http://$SERVICE_HOST:8080/v1/AUTH_\$(tenant_id)s" \
             --adminurl "http://$SERVICE_HOST:8080" \
-            --internalurl "http://$SERVICE_HOST:8080/v1/AUTH_\$(tenant_id)s"
+            --internalurl "http://$SERVICE_HOST:8080/v1/AUTH_\$(tenant_id)s" \
+            $SWIFT_SERVICE
     fi
 fi
 
 if [[ "$ENABLED_SERVICES" =~ "q-svc" ]]; then
-    NEUTRON_USER=$(get_id keystone user-create \
-        --name=neutron \
-        --pass="$SERVICE_PASSWORD" \
-        --tenant-id $SERVICE_TENANT \
-        --email=neutron@example.com)
-    keystone user-role-add \
-        --tenant-id $SERVICE_TENANT \
-        --user-id $NEUTRON_USER \
-        --role-id $ADMIN_ROLE
+    NEUTRON_USER=$($openstack user create -c id -f value \
+        --password="$SERVICE_PASSWORD" \
+        --project $SERVICE_TENANT \
+        --email=neutron@example.com \
+        neutron)
+    $openstack role add --user $NEUTRON_USER --project $SERVICE_TENANT $ADMIN_ROLE
+
     if [[ "$KEYSTONE_CATALOG_BACKEND" = 'sql' ]]; then
-        NEUTRON_SERVICE=$(get_id keystone service-create \
-            --name=neutron \
+        NEUTRON_SERVICE=$($openstack service create -c id -f value \
             --type=network \
-            --description="Quantum Service")
-        keystone endpoint-create \
+            --description="Quantum Service" \
+            neutron)
+        $openstack endpoint create \
             --region RegionOne \
-            --service_id $NEUTRON_SERVICE \
             --publicurl "http://$SERVICE_HOST:9696/" \
             --adminurl "http://$SERVICE_HOST:9696/" \
-            --internalurl "http://$SERVICE_HOST:9696/"
+            --internalurl "http://$SERVICE_HOST:9696/" \
+            $NEUTRON_SERVICE
     fi
 fi
 
 # EC2
 if [[ "$ENABLED_SERVICES" =~ "n-api" ]]; then
     if [[ "$KEYSTONE_CATALOG_BACKEND" = 'sql' ]]; then
-        EC2_SERVICE=$(get_id keystone service-create \
-            --name=ec2 \
+        EC2_SERVICE=$($openstack service create -c id -f value \
             --type=ec2 \
-            --description="EC2 Compatibility Layer")
-        keystone endpoint-create \
+            --description="EC2 Compatibility Layer" \
+            ec2)
+        $openstack endpoint create \
             --region RegionOne \
-            --service_id $EC2_SERVICE \
             --publicurl "http://$SERVICE_HOST:8773/services/Cloud" \
             --adminurl "http://$SERVICE_HOST:8773/services/Admin" \
-            --internalurl "http://$SERVICE_HOST:8773/services/Cloud"
+            --internalurl "http://$SERVICE_HOST:8773/services/Cloud" \
+            $EC2_SERVICE
     fi
 fi
 
 # S3
 if [[ "$ENABLED_SERVICES" =~ "n-obj" || "$ENABLED_SERVICES" =~ "swift" ]]; then
     if [[ "$KEYSTONE_CATALOG_BACKEND" = 'sql' ]]; then
-        S3_SERVICE=$(get_id keystone service-create \
-            --name=s3 \
+        S3_SERVICE=$($openstack service create -c id -f value \
             --type=s3 \
-            --description="S3")
-        keystone endpoint-create \
+            --description="S3" \
+            s3)
+        $openstack endpoint create \
             --region RegionOne \
-            --service_id $S3_SERVICE \
             --publicurl "http://$SERVICE_HOST:$S3_SERVICE_PORT" \
             --adminurl "http://$SERVICE_HOST:$S3_SERVICE_PORT" \
-            --internalurl "http://$SERVICE_HOST:$S3_SERVICE_PORT"
+            --internalurl "http://$SERVICE_HOST:$S3_SERVICE_PORT" \
+            $S3_SERVICE
     fi
 fi
 
 if [[ "$ENABLED_SERVICES" =~ "tempest" ]]; then
     # Tempest has some tests that validate various authorization checks
     # between two regular users in separate tenants
-    ALT_DEMO_TENANT=$(get_id keystone tenant-create \
-        --name=alt_demo)
-    ALT_DEMO_USER=$(get_id keystone user-create \
-        --name=alt_demo \
-        --pass="$ADMIN_PASSWORD" \
-        --email=alt_demo@example.com)
-    keystone user-role-add \
-        --tenant-id $ALT_DEMO_TENANT \
-        --user-id $ALT_DEMO_USER \
-        --role-id $MEMBER_ROLE
+    ALT_DEMO_TENANT=$($openstack project create -c id -f value \
+                             alt_demo)
+    ALT_DEMO_USER=$($openstack user create -c id -f value \
+        --password="$ADMIN_PASSWORD" \
+        --email=alt_demo@example.com \
+        alt_demo)
+    $openstack role add --user $ALT_DEMO_USER --project $ALT_DEMO_TENANT $MEMBER_ROLE
 fi
 
 if [[ "$ENABLED_SERVICES" =~ "c-api" ]]; then
-    CINDER_USER=$(get_id keystone user-create --name=cinder \
-                                              --pass="$SERVICE_PASSWORD" \
-                                              --tenant-id $SERVICE_TENANT \
-                                              --email=cinder@example.com)
-    keystone user-role-add --tenant-id $SERVICE_TENANT \
-                           --user-id $CINDER_USER \
-                           --role-id $ADMIN_ROLE
+    CINDER_USER=$($openstack user create -c id -f value \
+                                              --password="$SERVICE_PASSWORD" \
+                                              --project $SERVICE_TENANT \
+                                              --email=cinder@example.com \
+                                              cinder)
+    $openstack role add --user $CINDER_USER --project $SERVICE_TENANT $ADMIN_ROLE
+
     if [[ "$KEYSTONE_CATALOG_BACKEND" = 'sql' ]]; then
-        CINDER_SERVICE=$(get_id keystone service-create \
-            --name=cinder \
+        CINDER_SERVICE=$($openstack service create -c id -f value \
             --type=volume \
-            --description="Cinder Service")
-        keystone endpoint-create \
+            --description="Cinder Service" \
+            cinder)
+        $openstack endpoint create \
             --region RegionOne \
-            --service_id $CINDER_SERVICE \
             --publicurl "http://$SERVICE_HOST:8776/v1/\$(tenant_id)s" \
             --adminurl "http://$SERVICE_HOST:8776/v1/\$(tenant_id)s" \
-            --internalurl "http://$SERVICE_HOST:8776/v1/\$(tenant_id)s"
+            --internalurl "http://$SERVICE_HOST:8776/v1/\$(tenant_id)s" \
+            $CINDER_SERVICE
 
 
         # Create Cinder V2 API
-        CINDER_V2_SERVICE=$(get_id keystone service-create \
-                        --name=cinderv2 \
+        CINDER_V2_SERVICE=$($openstack service create -f value -c id \
                         --type=volumev2 \
-                        --description="Cinder Volume Service V2")
-        keystone endpoint-create \
+                        --description="Cinder Volume Service V2" \
+                        cinderv2)
+        $openstack endpoint create \
                         --region RegionOne \
-                        --service_id $CINDER_V2_SERVICE \
                         --publicurl "http://$SERVICE_HOST:8776/v2/\$(tenant_id)s" \
                         --adminurl "http://$SERVICE_HOST:8776/v2/\$(tenant_id)s" \
-                        --internalurl "http://$SERVICE_HOST:8776/v2/\$(tenant_id)s"
+                        --internalurl "http://$SERVICE_HOST:8776/v2/\$(tenant_id)s" \
+                         $CINDER_V2_SERVICE
     fi
 fi
 
@@ -364,25 +357,23 @@ if [[ "$ENABLED_SERVICES" =~ "ceilometer-api" ]]; then
     CEILOMETER_SERVICE_HOST=$SERVICE_HOST
     CEILOMETER_SERVICE_PORT=${CEILOMETER_SERVICE_PORT:-8777}
 
-    CEILOMETER_USER=$(get_id keystone user-create \
-        --name=ceilometer \
-        --pass="$SERVICE_PASSWORD" \
-        --tenant-id $SERVICE_TENANT \
-        --email=ceilometer@example.com)
-    keystone user-role-add \
-        --tenant-id $SERVICE_TENANT \
-        --user-id $CEILOMETER_USER \
-        --role-id $ADMIN_ROLE
+    CEILOMETER_USER=$($openstack user create -c id -f value \
+        --password="$SERVICE_PASSWORD" \
+        --project $SERVICE_TENANT \
+        --email=ceilometer@example.com \
+        ceilometer)
+    $openstack role add --user $CEILOMETER_USER --project $SERVICE_TENANT $ADMIN_ROLE
+
     if [[ "$KEYSTONE_CATALOG_BACKEND" = 'sql' ]]; then
-        CEILOMETER_SERVICE=$(get_id keystone service-create \
-            --name=ceilometer \
+        CEILOMETER_SERVICE=$($openstack service create -c id -f value \
             --type=metering \
-            --description="OpenStack Telemetry Service")
-        keystone endpoint-create \
+            --description="Openstack Telemetry Service" \
+            ceilometer)
+        $openstack endpoint create \
             --region RegionOne \
-            --service_id $CEILOMETER_SERVICE \
             --publicurl "$CEILOMETER_SERVICE_PROTOCOL://$CEILOMETER_SERVICE_HOST:$CEILOMETER_SERVICE_PORT/" \
             --adminurl "$CEILOMETER_SERVICE_PROTOCOL://$CEILOMETER_SERVICE_HOST:$CEILOMETER_SERVICE_PORT/" \
-            --internalurl "$CEILOMETER_SERVICE_PROTOCOL://$CEILOMETER_SERVICE_HOST:$CEILOMETER_SERVICE_PORT/"
+            --internalurl "$CEILOMETER_SERVICE_PROTOCOL://$CEILOMETER_SERVICE_HOST:$CEILOMETER_SERVICE_PORT/" \
+            $CEILOMETER_SERVICE
     fi
 fi
