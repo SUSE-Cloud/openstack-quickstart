@@ -511,6 +511,15 @@ crudini --set $c DEFAULT cinder_admin_password $ADMIN_PASSWORD
 crudini --set $c DEFAULT cinder_admin_tenant_name $SERVICE_TENANT_ID
 crudini --set $c DEFAULT cinder_admin_auth_url $KEYSTONE_PUBLIC_ENDPOINT
 
+# create and enable a manila backend
+crudini --set $c DEFAULT enabled_share_backends backend-0
+crudini --set $c backend-0 share_driver manila.share.drivers.generic.GenericShareDriver
+crudini --set $c backend-0 share_backend_name default
+crudini --set $c backend-0 service_image_name manila-service-image
+crudini --set $c backend-0 driver_handles_share_servers true
+crudini --set $c backend-0 service_instance_user root
+crudini --set $c backend-0 service_instance_password ""
+
 nova flavor-create manila-service-image-flavor 100 256 0 1
 
 # security rules for manila service VM
