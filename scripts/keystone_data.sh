@@ -393,6 +393,7 @@ if [[ "$ENABLED_SERVICES" =~ "m-api" ]]; then
                --project $SERVICE_TENANT \
                --user $MANILA_USER \
                $ADMIN_ROLE
+    # manila v1 api
     MANILA_SERVICE=$($openstack service create \
                                 --type=share \
                                 --description="Manila Shared Filesystem Service" \
@@ -403,4 +404,16 @@ if [[ "$ENABLED_SERVICES" =~ "m-api" ]]; then
                --adminurl "$MANILA_SERVICE_PROTOCOL://$MANILA_SERVICE_HOST:$MANILA_SERVICE_PORT/v1/\$(tenant_id)s" \
                --internalurl "$MANILA_SERVICE_PROTOCOL://$MANILA_SERVICE_HOST:$MANILA_SERVICE_PORT/v1/\$(tenant_id)s" \
                $MANILA_SERVICE
+
+    # manila v2 api (added during Liberty)
+    MANILA_SERVICE_V2=$($openstack service create \
+                                   --type=sharev2 \
+                                   --description="Manila Shared Filesystem Service V2" \
+                                   manilav2 -f value -c id)
+    $openstack endpoint create \
+               --region RegionOne \
+               --publicurl "$MANILA_SERVICE_PROTOCOL://$MANILA_SERVICE_HOST:$MANILA_SERVICE_PORT/v2/\$(tenant_id)s" \
+               --adminurl "$MANILA_SERVICE_PROTOCOL://$MANILA_SERVICE_HOST:$MANILA_SERVICE_PORT/v2/\$(tenant_id)s" \
+               --internalurl "$MANILA_SERVICE_PROTOCOL://$MANILA_SERVICE_HOST:$MANILA_SERVICE_PORT/v2/\$(tenant_id)s" \
+               $MANILA_SERVICE_V2
 fi
