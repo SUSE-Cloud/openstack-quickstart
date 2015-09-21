@@ -273,7 +273,7 @@ crudini --set /etc/keystone/keystone.conf DEFAULT admin_workers 2
 
 /etc/init.d/openstack-keystone restart
 
-sleep 2
+sleep 5
 
 keystone_data=/usr/lib/devstack/keystone_data.sh
 ENABLED_SERVICES="g-api,g-reg,key,n-api,n-cpu,n-net,n-vol,c-api,n-sch,n-novnc,n-xvnc,q-svc,heat,m-api,mysql,rabbit"
