@@ -312,7 +312,7 @@ crudini --set $c DEFAULT nova_url "http://$SERVICE_HOST:8774/v2"
 crudini --set $c DEFAULT nova_admin_username nova
 crudini --set $c DEFAULT nova_admin_password $ADMIN_PASSWORD
 crudini --set $c DEFAULT nova_admin_tenant_id $SERVICE_TENANT_ID
-crudini --set $c DEFAULT nova_admin_auth_url $KEYSTONE_PUBLIC_ENDPOINT
+crudini --set $c DEFAULT nova_admin_auth_url $KEYSTONE_ADMIN_ENDPOINT
 
 
 crudini --set /etc/neutron/plugins/ml2/linuxbridge_agent.ini linux_bridge physical_interface_mappings physnet1:$TENANT_ETH
