@@ -396,6 +396,7 @@ ext_bridge_cidr=`get_ext_bridge_cidr`
 
 if [ x$FLOATING_VLAN = x ]; then
     setup_ext_bridge_on_boot $ext_bridge_name $ext_bridge_ip $ext_bridge_cidr
+    systemctl restart wickedd
     ifup $ext_bridge_name
 fi
 #-----------------------------------------
