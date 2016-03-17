@@ -23,7 +23,7 @@ if [ "x$node_is_compute" = "xyes" ]; then
 fi
 
 if [ "x$with_tempest" = "xyes" ]; then
-    install_packages openstack-nova-objectstore openstack-neutron-lbaas-agent \
+    install_packages openstack-ec2-api-s3 openstack-neutron-lbaas-agent \
         openstack-neutron-vpn-agent openstack-neutron-fwaas \
         openstack-tempest-test openstack-manila-test
 fi
@@ -416,7 +416,7 @@ if [ "x$node_is_compute" = "xyes" ]; then
 fi
 
 if [ "x$with_tempest" = "xyes" ]; then
-    start_and_enable_service openstack-nova-objectstore
+    start_and_enable_service openstack-ec2-api-s3
 fi
 
 if [ "x$with_horizon" = "xyes" ]; then
