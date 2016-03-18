@@ -204,6 +204,9 @@ for c in /etc/glance/glance-api.conf /etc/glance/glance-registry.conf \
     setup_keystone_authtoken $c
 done
 
+setup_keystone_authtoken /etc/nova/nova.conf neutron
+setup_keystone_authtoken /etc/neutron/neutron.conf nova
+
 #-----------------------------------------
 ## setup glance configuration
 #-----------------------------------------
