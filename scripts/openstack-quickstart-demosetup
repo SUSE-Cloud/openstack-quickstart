@@ -101,7 +101,7 @@ start_and_enable_service open-iscsi
 # Set up the database
 if [ "$DB" = "postgresql" ] ; then
     sudo -u postgres dropdb keystone || true # needed for keystone_data.sh
-    for DBNAME in nova cinder keystone glance horizon heat neutron manila; do
+    for DBNAME in nova nova_api cinder keystone glance horizon heat neutron manila; do
         # use ALTER if CREATE fails: the role probably already exists
         # in that case
         sudo -u postgres psql -c "CREATE ROLE $DBNAME PASSWORD '$mpw' LOGIN;" || \
@@ -226,6 +226,7 @@ for i in $(seq 1 64); do
 done
 
 crudini --set /etc/nova/nova.conf database connection "$DB://nova:$mpw@$IP/nova"
+crudini --set /etc/nova/nova.conf api_database connection "$DB://nova_api:$mpw@$IP/nova_api"
 crudini --set /etc/nova/nova.conf glance host $IP
 crudini --set /etc/nova/nova.conf glance api_servers "http://$IP:9292"
 crudini --set /etc/nova/nova.conf DEFAULT novncproxy_base_url "http://$IP:6080/vnc_auto.html"
