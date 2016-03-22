@@ -196,13 +196,19 @@ function setup_messaging_client() {
     crudini --set $conf oslo_messaging_rabbit rabbit_password $pw
 }
 
+# see also devstack/keystone configure_auth_token_middleware()
 function setup_keystone_authtoken() {
-    conf=$1
+    local conf=$1
+    local section=${2:-keystone_authtoken}
     [ -e "$conf" ] || return 0
 
-    crudini --set $conf keystone_authtoken identity_uri http://$IP:35357/
-    crudini --set $conf keystone_authtoken auth_uri $KEYSTONE_PUBLIC_ENDPOINT
-    crudini --set $conf keystone_authtoken admin_tenant_name service
-    crudini --set $conf keystone_authtoken admin_user '%SERVICE_USER%'
-    crudini --set $conf keystone_authtoken admin_password '%SERVICE_PASSWORD%'
+    crudini --set $conf $section auth_type password
+    crudini --set $conf $section username '%SERVICE_USER%'
+    crudini --set $conf $section password '%SERVICE_PASSWORD%'
+    crudini --set $conf $section user_domain_id default
+    crudini --set $conf $section project_name service
+    crudini --set $conf $section project_domain_id default
+    crudini --set $conf $section auth_url http://$IP:35357/
+    crudini --set $conf $section auth_uri $KEYSTONE_PUBLIC_ENDPOINT
+    #crudini --set $conf $section signing_dir $signing_dir
 }
