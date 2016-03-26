@@ -337,8 +337,11 @@ fi
 start_and_enable_service rabbitmq-server
 
 sleep 2
-rabbitmqctl add_user openstack $ADMIN_PASSWORD
-rabbitmqctl set_permissions openstack ".*" ".*" ".*"
+if ! rabbitmqctl list_users|grep -q openstack; then
+    rabbitmqctl add_user openstack $ADMIN_PASSWORD
+    rabbitmqctl set_permissions openstack ".*" ".*" ".*"
+fi
+
 
 # Start Keystone and Neutron
 for s in openstack-keystone \
