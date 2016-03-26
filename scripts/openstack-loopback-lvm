@@ -1,5 +1,8 @@
 #!/bin/sh
 
+systemctl enable lvm2-lvmetad
+systemctl start lvm2-lvmetad
+
 f=/var/lib/cinder/volumes-pv
 loop=/dev/loop0
 modprobe loop

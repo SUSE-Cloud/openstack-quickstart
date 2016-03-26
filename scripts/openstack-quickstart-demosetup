@@ -466,7 +466,6 @@ done
 ## setup loopback LVM configuration
 #-----------------------------------------
 
-
 openstack_loopback_lvm=/usr/sbin/openstack-loopback-lvm
 $openstack_loopback_lvm
 if [ "$?" -ne "0" ]; then
