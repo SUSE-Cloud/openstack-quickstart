@@ -26,7 +26,7 @@ function get_router_id () {
 }
 
 function get_service_tenant_id () {
-    id=`keystone tenant-get service | awk '/id/  { print $4 } '`
+    id=`openstack project show service -c id -f value`
 
     echo $id
 }
