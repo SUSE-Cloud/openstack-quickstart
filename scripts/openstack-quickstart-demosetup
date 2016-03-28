@@ -197,15 +197,18 @@ fi
 # setup keystone client endpoint configuration
 #-----------------------------------------
 
-for c in /etc/glance/glance-api.conf /etc/glance/glance-registry.conf \
-    /etc/neutron/neutron.conf /etc/cinder/cinder.conf \
-    /etc/heat/heat.conf /etc/nova/nova.conf /etc/manila/manila.conf; do
+setup_keystone_authtoken /etc/glance/glance-api.conf glance
+setup_keystone_authtoken /etc/glance/glance-registry.conf glance
+setup_keystone_authtoken /etc/neutron/neutron.conf neutron
+setup_keystone_authtoken /etc/neutron/neutron.conf nova nova
+setup_keystone_authtoken /etc/cinder/cinder.conf cinder
+setup_keystone_authtoken /etc/heat/heat.conf heat
+setup_keystone_authtoken /etc/nova/nova.conf nova
+setup_keystone_authtoken /etc/nova/nova.conf neutron neutron
+setup_keystone_authtoken /etc/manila/manila.conf manila
+setup_keystone_authtoken /etc/manila/manila.conf neutron neutron
+setup_keystone_authtoken /etc/manila/manila.conf nova nova
 
-    setup_keystone_authtoken $c
-done
-
-setup_keystone_authtoken /etc/nova/nova.conf neutron
-setup_keystone_authtoken /etc/neutron/neutron.conf nova
 
 #-----------------------------------------
 ## setup glance configuration
@@ -263,7 +266,6 @@ fi
 
 for m in cinder heat nova glance neutron manila; do
     sed -i -e 's/%SERVICE_TENANT_NAME%/service/' \
-           -e "s/%SERVICE_USER%/$m/" \
            -e "s/%SERVICE_PASSWORD%/$ADMIN_PASSWORD/" \
                /etc/$m/*.ini /etc/$m/$m*.conf
 done
