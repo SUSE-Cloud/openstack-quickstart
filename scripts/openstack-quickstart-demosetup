@@ -562,16 +562,19 @@ manila type-create default true
 
 if [ "x$with_tempest" = "xyes" -a -e /etc/tempest/tempest.conf ]; then
     crudini --set /etc/tempest/tempest.conf auth allow_tenant_isolation false
+    crudini --set /etc/tempest/tempest.conf auth use_dynamic_credentials True
+    crudini --set /etc/tempest/tempest.conf auth tempest_roles Member
+    crudini --set /etc/tempest/tempest.conf auth admin_domain_name Default
+    crudini --set /etc/tempest/tempest.conf auth admin_tenant_name admin
+    crudini --set /etc/tempest/tempest.conf auth admin_password $pw
+    crudini --set /etc/tempest/tempest.conf auth admin_username admin
     crudini --set /etc/tempest/tempest.conf identity uri $KEYSTONE_PUBLIC_ENDPOINT
     crudini --set /etc/tempest/tempest.conf identity uri_v3 $KEYSTONE_PUBLIC_ENDPOINT_V3
+    crudini --set /etc/tempest/tempest.conf identity auth_version v2
     crudini --set /etc/tempest/tempest.conf identity username demo
     crudini --set /etc/tempest/tempest.conf identity tenant_name demo
     crudini --set /etc/tempest/tempest.conf identity alt_password $pw
     crudini --set /etc/tempest/tempest.conf identity password $pw
-    crudini --set /etc/tempest/tempest.conf identity admin_username admin
-    crudini --set /etc/tempest/tempest.conf identity admin_tenant_name admin
-    crudini --set /etc/tempest/tempest.conf identity admin_password $pw
-    crudini --set /etc/tempest/tempest.conf identity admin_domain_name Default
     crudini --set /etc/tempest/tempest.conf compute-feature-enabled change_password False
     crudini --set /etc/tempest/tempest.conf compute-feature-enabled live_migration False
     crudini --set /etc/tempest/tempest.conf compute-feature-enabled vnc_console true
@@ -581,6 +584,7 @@ if [ "x$with_tempest" = "xyes" -a -e /etc/tempest/tempest.conf ]; then
     crudini --set /etc/tempest/tempest.conf compute-admin username admin
     crudini --set /etc/tempest/tempest.conf compute-admin tenant_name admin
     crudini --set /etc/tempest/tempest.conf compute-admin password $pw
+    crudini --set /etc/tempest/tempest.conf orchestration stack_owner_role _member_
     crudini --set /etc/tempest/tempest.conf network public_network_id $ext_network_id
     crudini --set /etc/tempest/tempest.conf service_available neutron True
     crudini --set /etc/tempest/tempest.conf service_available swift False
