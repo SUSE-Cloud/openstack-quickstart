@@ -95,7 +95,7 @@ do
     start_and_enable_service $s
 done
 
-start_and_enable_service open-iscsi
+start_and_enable_service iscsid
 
 
 # Set up the database
