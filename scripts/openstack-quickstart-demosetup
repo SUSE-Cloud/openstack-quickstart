@@ -434,10 +434,14 @@ fi
 ## setup heat configuration
 #-----------------------------------------
 
+setup_messaging_client /etc/heat/heat.conf
 crudini --set /etc/heat/heat.conf database connection $DB://heat:$mpw@$IP/heat
 crudini --set /etc/heat/heat.conf DEFAULT deferred_auth_method trusts
 crudini --set /etc/heat/heat.conf DEFAULT num_engine_workers "1"
 crudini --set /etc/heat/heat.conf heat_api workers "1"
+crudini --set /etc/heat/heat.conf clients_keystone auth_uri "http://$IP:35357/"
+crudini --set /etc/heat/heat.conf trustee auth_plugin password
+crudini --set /etc/heat/heat.conf trustee auth_url "http://$IP:35357/"
 
 
 HEAT_DOMAIN_ID=$(openstack --os-token $SERVICE_TOKEN --os-url=$KEYSTONE_PUBLIC_ENDPOINT_V3 \
