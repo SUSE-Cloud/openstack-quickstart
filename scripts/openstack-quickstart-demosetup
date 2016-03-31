@@ -95,7 +95,7 @@ do
     start_and_enable_service $s
 done
 
-start_and_enable_service open-iscsi
+start_and_enable_service iscsid
 
 
 # Set up the database
@@ -197,15 +197,18 @@ fi
 # setup keystone client endpoint configuration
 #-----------------------------------------
 
-for c in /etc/glance/glance-api.conf /etc/glance/glance-registry.conf \
-    /etc/neutron/neutron.conf /etc/cinder/cinder.conf \
-    /etc/heat/heat.conf /etc/nova/nova.conf /etc/manila/manila.conf; do
+setup_keystone_authtoken /etc/glance/glance-api.conf glance
+setup_keystone_authtoken /etc/glance/glance-registry.conf glance
+setup_keystone_authtoken /etc/neutron/neutron.conf neutron
+setup_keystone_authtoken /etc/neutron/neutron.conf nova nova
+setup_keystone_authtoken /etc/cinder/cinder.conf cinder
+setup_keystone_authtoken /etc/heat/heat.conf heat
+setup_keystone_authtoken /etc/nova/nova.conf nova
+setup_keystone_authtoken /etc/nova/nova.conf neutron neutron
+setup_keystone_authtoken /etc/manila/manila.conf manila
+setup_keystone_authtoken /etc/manila/manila.conf neutron neutron
+setup_keystone_authtoken /etc/manila/manila.conf nova nova
 
-    setup_keystone_authtoken $c
-done
-
-setup_keystone_authtoken /etc/nova/nova.conf neutron
-setup_keystone_authtoken /etc/neutron/neutron.conf nova
 
 #-----------------------------------------
 ## setup glance configuration
@@ -263,7 +266,6 @@ fi
 
 for m in cinder heat nova glance neutron manila; do
     sed -i -e 's/%SERVICE_TENANT_NAME%/service/' \
-           -e "s/%SERVICE_USER%/$m/" \
            -e "s/%SERVICE_PASSWORD%/$ADMIN_PASSWORD/" \
                /etc/$m/*.ini /etc/$m/$m*.conf
 done
@@ -287,10 +289,11 @@ fi
 if [ "x$with_tempest" = "xyes" ]; then
     ENABLED_SERVICES+=",tempest"
 fi
-SERVICE_ENDPOINT=$KEYSTONE_AUTH_PROTOCOL://$KEYSTONE_AUTH_HOST:$KEYSTONE_AUTH_PORT/v2.0
 
-ADMIN_PASSWORD=$ADMIN_PASSWORD KEYSTONE_CATALOG_BACKEND=sql SERVICE_HOST=$SERVICE_HOST \
-    SERVICE_TOKEN=$SERVICE_TOKEN SERVICE_ENDPOINT=$SERVICE_ENDPOINT DEVSTACK_DIR=/root \
+SERVICE_ENDPOINT=$KEYSTONE_AUTH_PROTOCOL://$KEYSTONE_AUTH_HOST:$KEYSTONE_AUTH_PORT
+
+ADMIN_PASSWORD=$ADMIN_PASSWORD SERVICE_HOST=$SERVICE_HOST \
+    SERVICE_ENDPOINT=$SERVICE_ENDPOINT DEVSTACK_DIR=/root \
     ENABLED_SERVICES=$ENABLED_SERVICES bash $keystone_data
 
 . /etc/bash.bashrc.local
@@ -312,12 +315,6 @@ crudini --set $c database connection $DB://neutron:$mpw@$IP/neutron
 crudini --set $c DEFAULT allow_overlapping_ips true
 crudini --set $c DEFAULT notify_nova_on_port_status_change true
 crudini --set $c DEFAULT notify_nova_on_port_data_changes true
-crudini --set $c DEFAULT nova_url "http://$SERVICE_HOST:8774/v2"
-crudini --set $c DEFAULT nova_admin_username nova
-crudini --set $c DEFAULT nova_admin_password $ADMIN_PASSWORD
-crudini --set $c DEFAULT nova_admin_tenant_id $SERVICE_TENANT_ID
-crudini --set $c DEFAULT nova_admin_auth_url $KEYSTONE_PUBLIC_ENDPOINT
-
 
 crudini --set /etc/neutron/plugins/ml2/linuxbridge_agent.ini linux_bridge physical_interface_mappings physnet1:$TENANT_ETH
 crudini --set /etc/neutron/plugins/ml2/linuxbridge_agent.ini securitygroup firewall_driver neutron.agent.linux.iptables_firewall.IptablesFirewallDriver
@@ -337,8 +334,11 @@ fi
 start_and_enable_service rabbitmq-server
 
 sleep 2
-rabbitmqctl add_user openstack $ADMIN_PASSWORD
-rabbitmqctl set_permissions openstack ".*" ".*" ".*"
+if ! rabbitmqctl list_users|grep -q openstack; then
+    rabbitmqctl add_user openstack $ADMIN_PASSWORD
+    rabbitmqctl set_permissions openstack ".*" ".*" ".*"
+fi
+
 
 # Start Keystone and Neutron
 for s in openstack-keystone \
@@ -434,10 +434,14 @@ fi
 ## setup heat configuration
 #-----------------------------------------
 
+setup_messaging_client /etc/heat/heat.conf
 crudini --set /etc/heat/heat.conf database connection $DB://heat:$mpw@$IP/heat
 crudini --set /etc/heat/heat.conf DEFAULT deferred_auth_method trusts
 crudini --set /etc/heat/heat.conf DEFAULT num_engine_workers "1"
 crudini --set /etc/heat/heat.conf heat_api workers "1"
+crudini --set /etc/heat/heat.conf clients_keystone auth_uri "http://$IP:35357/"
+crudini --set /etc/heat/heat.conf trustee auth_plugin password
+crudini --set /etc/heat/heat.conf trustee auth_url "http://$IP:35357/"
 
 
 HEAT_DOMAIN_ID=$(openstack --os-token $SERVICE_TOKEN --os-url=$KEYSTONE_PUBLIC_ENDPOINT_V3 \
@@ -465,7 +469,6 @@ done
 #-----------------------------------------
 ## setup loopback LVM configuration
 #-----------------------------------------
-
 
 openstack_loopback_lvm=/usr/sbin/openstack-loopback-lvm
 $openstack_loopback_lvm
@@ -559,16 +562,19 @@ manila type-create default true
 
 if [ "x$with_tempest" = "xyes" -a -e /etc/tempest/tempest.conf ]; then
     crudini --set /etc/tempest/tempest.conf auth allow_tenant_isolation false
+    crudini --set /etc/tempest/tempest.conf auth use_dynamic_credentials True
+    crudini --set /etc/tempest/tempest.conf auth tempest_roles Member
+    crudini --set /etc/tempest/tempest.conf auth admin_domain_name Default
+    crudini --set /etc/tempest/tempest.conf auth admin_tenant_name admin
+    crudini --set /etc/tempest/tempest.conf auth admin_password $pw
+    crudini --set /etc/tempest/tempest.conf auth admin_username admin
     crudini --set /etc/tempest/tempest.conf identity uri $KEYSTONE_PUBLIC_ENDPOINT
     crudini --set /etc/tempest/tempest.conf identity uri_v3 $KEYSTONE_PUBLIC_ENDPOINT_V3
+    crudini --set /etc/tempest/tempest.conf identity auth_version v2
     crudini --set /etc/tempest/tempest.conf identity username demo
     crudini --set /etc/tempest/tempest.conf identity tenant_name demo
     crudini --set /etc/tempest/tempest.conf identity alt_password $pw
     crudini --set /etc/tempest/tempest.conf identity password $pw
-    crudini --set /etc/tempest/tempest.conf identity admin_username admin
-    crudini --set /etc/tempest/tempest.conf identity admin_tenant_name admin
-    crudini --set /etc/tempest/tempest.conf identity admin_password $pw
-    crudini --set /etc/tempest/tempest.conf identity admin_domain_name Default
     crudini --set /etc/tempest/tempest.conf compute-feature-enabled change_password False
     crudini --set /etc/tempest/tempest.conf compute-feature-enabled live_migration False
     crudini --set /etc/tempest/tempest.conf compute-feature-enabled vnc_console true
@@ -578,6 +584,7 @@ if [ "x$with_tempest" = "xyes" -a -e /etc/tempest/tempest.conf ]; then
     crudini --set /etc/tempest/tempest.conf compute-admin username admin
     crudini --set /etc/tempest/tempest.conf compute-admin tenant_name admin
     crudini --set /etc/tempest/tempest.conf compute-admin password $pw
+    crudini --set /etc/tempest/tempest.conf orchestration stack_owner_role _member_
     crudini --set /etc/tempest/tempest.conf network public_network_id $ext_network_id
     crudini --set /etc/tempest/tempest.conf service_available neutron True
     crudini --set /etc/tempest/tempest.conf service_available swift False
