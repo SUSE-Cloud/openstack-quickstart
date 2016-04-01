@@ -1,33 +1,54 @@
 #!/bin/sh
 
-f=/var/lib/cinder/volumes-pv
-loop=/dev/loop0
+function truncate_file()
+{
+    local f=$1
+    # calc wanted size
+    size=$(df -P -k $(dirname $f)|tail -1| \
+                  perl -ne 'm/^\S+\s*\d+\s+\d+\s+(\d+)/; print int($1*0.3)')
+
+    if [ $size -le 2000000 ] ; then
+        echo "error detecting free space or FS too small: $size KB"
+        exit 12
+    fi
+    truncate --size=${size}K $f
+}
+
+function setup_vg()
+{
+    local vg_name=$1
+    local vg_dev=$2
+    local loop_file=$3
+
+    vgchange -an $vg_name
+    if [ -n "$loop_file" ] && [ ! -e "$loop_file" ] ; then
+        truncate_file $loop_file
+        losetup $vg_dev $loop_file
+    fi
+
+    pvcreate $vg_dev
+    vgcreate $vg_name $vg_dev
+    vgchange -ay $vg_name
+
+    echo "using device $vg_dev for VG $vg_name"
+}
+
+####################
+# script starts here
+####################
 modprobe loop
 
+# enable or create cinder-volumes VG
 if vgs |grep -q cinder-volumes ; then
   echo "using existing cinder-volumes VG"
   vgchange -ay cinder-volumes
-  exit 0
+else
+    # create new VG
+    dev="/dev/loop0"
+    loop_file="/var/lib/cinder/volumes-pv"
+    if [ -n "$CINDER_VOLUMES_DEV" ]; then
+        dev=$CINDER_VOLUMES_DEV
+        loop_file=""
+    fi
+    setup_vg "cinder-volumes" "$dev" "$loop_file"
 fi
-
-# stop/cleanup
-#vgremove cinder-volumes
-vgchange -an cinder-volumes
-#losetup -d $loop
-
-if ! test -e $f ; then
-	# calc wanted size
-	size=$(df -P -k /var/lib/cinder/|tail -1| perl -ne 'm/^\S+\s*\d+\s+\d+\s+(\d+)/; print int($1*0.3)')
-
-	if [ $size -le 2000000 ] ; then
-		echo "error detecting free space or FS too small: $size KB"
-		exit 12
-	fi
-
-	truncate --size=${size}K $f
-fi
-losetup $loop $f
-pvcreate $loop
-vgcreate cinder-volumes $loop
-
-vgchange -ay cinder-volumes
