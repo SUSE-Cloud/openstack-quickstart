@@ -505,6 +505,10 @@ done
 #-----------------------------------------
 # setup OpenStack Manila
 #-----------------------------------------
+# nfsserver is needed for the lvm driver
+install_packages nfs-kernel-server nfs-client nfs-utils
+start_and_enable_service nfsserver
+
 c="/etc/manila/manila.conf"
 setup_messaging_client $c
 crudini --set $c DEFAULT my_ip "$IP"
@@ -515,33 +519,17 @@ crudini --set $c DEFAULT share_volume_fstype ext3
 
 # create and enable a manila backend
 crudini --set $c DEFAULT enabled_share_backends backend-0
-crudini --set $c backend-0 share_driver manila.share.drivers.generic.GenericShareDriver
+crudini --set $c backend-0 share_driver manila.share.drivers.lvm.LVMShareDriver
 crudini --set $c backend-0 share_backend_name default
-crudini --set $c backend-0 service_image_name manila-service-image
-crudini --set $c backend-0 driver_handles_share_servers true
-crudini --set $c backend-0 service_instance_user root
-crudini --set $c backend-0 service_instance_password ""
-crudini --set $c backend-0 interface_driver manila.network.linux.interface.BridgeInterfaceDriver
-
-nova flavor-create manila-service-image-flavor 100 256 0 1
-
-# security rules for manila service VM
-MANILA_SERVICE_SECGROUP="manila-service"
-nova secgroup-create $MANILA_SERVICE_SECGROUP "$MANILA_SERVICE_SECGROUP desc"
-nova secgroup-add-rule $MANILA_SERVICE_SECGROUP icmp -1 -1 0.0.0.0/0
-nova secgroup-add-rule $MANILA_SERVICE_SECGROUP tcp 22 22 0.0.0.0/0
-nova secgroup-add-rule $MANILA_SERVICE_SECGROUP tcp 2049 2049 0.0.0.0/0
-nova secgroup-add-rule $MANILA_SERVICE_SECGROUP udp 2049 2049 0.0.0.0/0
-nova secgroup-add-rule $MANILA_SERVICE_SECGROUP udp 445 445 0.0.0.0/0
-nova secgroup-add-rule $MANILA_SERVICE_SECGROUP tcp 445 445 0.0.0.0/0
-nova secgroup-add-rule $MANILA_SERVICE_SECGROUP tcp 137 139 0.0.0.0/0
-nova secgroup-add-rule $MANILA_SERVICE_SECGROUP udp 137 139 0.0.0.0/0
+crudini --set $c backend-0 driver_handles_share_servers false
+crudini --set $c backend-0 lvm_share_volume_group manila-shares
+crudini --set $c backend-0 lvm_share_export_ip $IP
 
 start_and_enable_service openstack-manila-api
 start_and_enable_service openstack-manila-scheduler
 start_and_enable_service openstack-manila-share
 
-manila type-create default true
+manila type-create default false
 
 #-----------------------------------------
 # setup tempest configuration
