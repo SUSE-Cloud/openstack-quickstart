@@ -18,15 +18,6 @@ fi
 vgchange -an cinder-volumes
 #losetup -d $loop
 
-# cleanup old nova-volumes volume group
-if vgs | grep -q nova-volumes ; then
-    echo "cleaning up old nova-volumes VG"
-    vgchange -an nova-volumes
-    vgremove nova-volumes
-    losetup -d $loop
-fi
-
-
 if ! test -e $f ; then
 	# calc wanted size
 	size=$(df -P -k /var/lib/cinder/|tail -1| perl -ne 'm/^\S+\s*\d+\s+\d+\s+(\d+)/; print int($1*0.3)')
