@@ -565,9 +565,23 @@ if [ "x$with_tempest" = "xyes" -a -e /etc/tempest/tempest.conf ]; then
     crudini --set /etc/tempest/tempest.conf service_available swift False
     crudini --set /etc/tempest/tempest.conf service_available ceilometer False
     crudini --set /etc/tempest/tempest.conf service_available heat True
-    crudini --set /etc/tempest/tempest.conf service_available manila False
+    crudini --set /etc/tempest/tempest.conf service_available manila True
     crudini --set /etc/tempest/tempest.conf stress max_instances 1
     crudini --set /etc/tempest/tempest.conf service_available horizon $with_horizon
     crudini --set /etc/tempest/tempest.conf volume-feature-enabled backup false
     crudini --set /etc/tempest/tempest.conf image-feature-enabled deactivate_image true
+    # manila share config
+    crudini --set /etc/tempest/tempest.conf share run_manage_unmanage_snapshot_tests False
+    crudini --set /etc/tempest/tempest.conf share run_manage_unmanage_tests False
+    crudini --set /etc/tempest/tempest.conf share run_consistency_group_tests False
+    crudini --set /etc/tempest/tempest.conf share enable_user_rules_for_protocols cifs
+    crudini --set /etc/tempest/tempest.conf share enable_ip_rules_for_protocols nfs
+    crudini --set /etc/tempest/tempest.conf share run_shrink_tests False
+    crudini --set /etc/tempest/tempest.conf share multitenancy_enabled False
+    crudini --set /etc/tempest/tempest.conf share run_replication_tests False
+    crudini --set /etc/tempest/tempest.conf share suppress_errors_in_cleanup True
+    crudini --set /etc/tempest/tempest.conf share share_creation_retry_number 2
+    crudini --set /etc/tempest/tempest.conf share backend_names backend-0
+    crudini --set /etc/tempest/tempest.conf share run_migration_tests True
+    crudini --set /etc/tempest/tempest.conf share multi_backend False
 fi
