@@ -31,7 +31,7 @@ fi
 # TODO: remove when manila packages are part of patterns!
 install_packages openstack-manila openstack-manila-api \
                  openstack-manila-scheduler openstack-manila-share \
-                 python-manila python-manilaclient
+                 openstack-manila-data python-manila python-manilaclient
 
 if [ "$DB" = "postgresql" ] ; then
     if grep -q "SUSE Linux Enterprise Server 11" /etc/SuSE-release; then
@@ -528,6 +528,7 @@ crudini --set $c backend-0 lvm_share_export_ip $IP
 start_and_enable_service openstack-manila-api
 start_and_enable_service openstack-manila-scheduler
 start_and_enable_service openstack-manila-share
+start_and_enable_service openstack-manila-data
 
 manila type-create default false
 
