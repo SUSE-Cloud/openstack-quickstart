@@ -17,19 +17,20 @@ function truncate_file()
 function setup_vg()
 {
     local vg_name=$1
-    local loop_dev=$2
+    local vg_dev=$2
     local loop_file=$3
 
     vgchange -an $vg_name
-    if ! test -e $loop_file ; then
+    if [ -n "$loop_file" ] && [ ! -e "$loop_file" ] ; then
         truncate_file $loop_file
+        losetup $vg_dev $loop_file
     fi
 
-    losetup $loop_dev $loop_file
-    pvcreate $loop_dev
-    vgcreate $vg_name $loop_dev
+    pvcreate $vg_dev
+    vgcreate $vg_name $vg_dev
     vgchange -ay $vg_name
 
+    echo "using device $vg_dev for VG $vg_name"
 }
 
 ####################
@@ -46,7 +47,13 @@ if vgs |grep -q cinder-volumes ; then
   vgchange -ay cinder-volumes
 else
     # create new VG
-    setup_vg "cinder-volumes" "/dev/loop0" "/var/lib/cinder/volumes-pv"
+    dev="/dev/loop0"
+    loop_file="/var/lib/cinder/volumes-pv"
+    if [ -n "$CINDER_VOLUMES_DEV" ]; then
+        dev=$CINDER_VOLUMES_DEV
+        loop_file=""
+    fi
+    setup_vg "cinder-volumes" "$dev" "$loop_file"
 fi
 
 # enable or create manila-shares VG
@@ -54,6 +61,13 @@ if vgs |grep -q manila-shares ; then
   echo "using existing manila-shares VG"
   vgchange -ay manila-shares
 else
+    dev="/dev/loop1"
+    loop_file="/var/lib/manila/shares-pv"
     # create new VG
-    setup_vg "manila-shares" "/dev/loop1" "/var/lib/manila/shares-pv"
+    if [ -n "$MANILA_SHARES_DEV" ]; then
+        dev=$MANILA_SHARES_DEV
+        loop_file=""
+    fi
+
+    setup_vg "manila-shares" "$dev" "$loop_file"
 fi
