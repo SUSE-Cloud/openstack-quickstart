@@ -419,6 +419,9 @@ if [ "x$node_is_compute" = "xyes" ]; then
     start_and_enable_service openstack-nova-compute
 fi
 
+# migrate data directly
+nova-manage db online_data_migrations
+
 if [ "x$with_tempest" = "xyes" ]; then
     start_and_enable_service openstack-ec2-api-s3
 fi
