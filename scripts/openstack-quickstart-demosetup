@@ -31,7 +31,7 @@ fi
 # TODO: remove when manila packages are part of patterns!
 install_packages openstack-manila openstack-manila-api \
                  openstack-manila-scheduler openstack-manila-share \
-                 python-manila python-manilaclient
+                 openstack-manila-data python-manila python-manilaclient
 
 if [ "$DB" = "postgresql" ] ; then
     if grep -q "SUSE Linux Enterprise Server 11" /etc/SuSE-release; then
@@ -208,6 +208,7 @@ setup_keystone_authtoken /etc/nova/nova.conf neutron neutron
 setup_keystone_authtoken /etc/manila/manila.conf manila
 setup_keystone_authtoken /etc/manila/manila.conf neutron neutron
 setup_keystone_authtoken /etc/manila/manila.conf nova nova
+setup_keystone_authtoken /etc/manila/manila.conf cinder cinder
 
 
 #-----------------------------------------
@@ -507,57 +508,32 @@ done
 #-----------------------------------------
 # setup OpenStack Manila
 #-----------------------------------------
+# nfsserver is needed for the lvm driver
+install_packages nfs-kernel-server nfs-client nfs-utils
+start_and_enable_service nfsserver
+
 c="/etc/manila/manila.conf"
 setup_messaging_client $c
 crudini --set $c DEFAULT my_ip "$IP"
 crudini --set $c DEFAULT default_share_type "default"
 crudini --set $c database connection "$DB://manila:${mpw}@${IP}/manila"
 crudini --set $c identity uri $KEYSTONE_PUBLIC_ENDPOINT
-crudini --set $c DEFAULT nova_admin_username nova
-crudini --set $c DEFAULT nova_admin_password $ADMIN_PASSWORD
-crudini --set $c DEFAULT nova_admin_tenant_id $SERVICE_TENANT_ID
-crudini --set $c DEFAULT nova_admin_auth_url $KEYSTONE_PUBLIC_ENDPOINT
-
-crudini --set $c DEFAULT neutron_admin_username neutron
-crudini --set $c DEFAULT neutron_admin_password $ADMIN_PASSWORD
-crudini --set $c DEFAULT neutron_admin_project_name "service"
-crudini --set $c DEFAULT neutron_admin_auth_url $KEYSTONE_PUBLIC_ENDPOINT
-
-crudini --set $c DEFAULT cinder_admin_username cinder
-crudini --set $c DEFAULT cinder_admin_password $ADMIN_PASSWORD
-crudini --set $c DEFAULT cinder_admin_tenant_name "service"
-crudini --set $c DEFAULT cinder_admin_auth_url $KEYSTONE_PUBLIC_ENDPOINT
 crudini --set $c DEFAULT share_volume_fstype ext3
 
 # create and enable a manila backend
 crudini --set $c DEFAULT enabled_share_backends backend-0
-crudini --set $c backend-0 share_driver manila.share.drivers.generic.GenericShareDriver
+crudini --set $c backend-0 share_driver manila.share.drivers.lvm.LVMShareDriver
 crudini --set $c backend-0 share_backend_name default
-crudini --set $c backend-0 service_image_name manila-service-image
-crudini --set $c backend-0 driver_handles_share_servers true
-crudini --set $c backend-0 service_instance_user root
-crudini --set $c backend-0 service_instance_password ""
-crudini --set $c backend-0 interface_driver manila.network.linux.interface.BridgeInterfaceDriver
-
-nova flavor-create manila-service-image-flavor 100 256 0 1
-
-# security rules for manila service VM
-MANILA_SERVICE_SECGROUP="manila-service"
-nova secgroup-create $MANILA_SERVICE_SECGROUP "$MANILA_SERVICE_SECGROUP desc"
-nova secgroup-add-rule $MANILA_SERVICE_SECGROUP icmp -1 -1 0.0.0.0/0
-nova secgroup-add-rule $MANILA_SERVICE_SECGROUP tcp 22 22 0.0.0.0/0
-nova secgroup-add-rule $MANILA_SERVICE_SECGROUP tcp 2049 2049 0.0.0.0/0
-nova secgroup-add-rule $MANILA_SERVICE_SECGROUP udp 2049 2049 0.0.0.0/0
-nova secgroup-add-rule $MANILA_SERVICE_SECGROUP udp 445 445 0.0.0.0/0
-nova secgroup-add-rule $MANILA_SERVICE_SECGROUP tcp 445 445 0.0.0.0/0
-nova secgroup-add-rule $MANILA_SERVICE_SECGROUP tcp 137 139 0.0.0.0/0
-nova secgroup-add-rule $MANILA_SERVICE_SECGROUP udp 137 139 0.0.0.0/0
+crudini --set $c backend-0 driver_handles_share_servers false
+crudini --set $c backend-0 lvm_share_volume_group manila-shares
+crudini --set $c backend-0 lvm_share_export_ip $IP
 
 start_and_enable_service openstack-manila-api
 start_and_enable_service openstack-manila-scheduler
 start_and_enable_service openstack-manila-share
+start_and_enable_service openstack-manila-data
 
-manila type-create default true
+manila type-create default false
 
 #-----------------------------------------
 # setup tempest configuration
@@ -593,9 +569,23 @@ if [ "x$with_tempest" = "xyes" -a -e /etc/tempest/tempest.conf ]; then
     crudini --set /etc/tempest/tempest.conf service_available swift False
     crudini --set /etc/tempest/tempest.conf service_available ceilometer False
     crudini --set /etc/tempest/tempest.conf service_available heat True
-    crudini --set /etc/tempest/tempest.conf service_available manila False
+    crudini --set /etc/tempest/tempest.conf service_available manila True
     crudini --set /etc/tempest/tempest.conf stress max_instances 1
     crudini --set /etc/tempest/tempest.conf service_available horizon $with_horizon
     crudini --set /etc/tempest/tempest.conf volume-feature-enabled backup false
     crudini --set /etc/tempest/tempest.conf image-feature-enabled deactivate_image true
+    # manila share config
+    crudini --set /etc/tempest/tempest.conf share run_manage_unmanage_snapshot_tests False
+    crudini --set /etc/tempest/tempest.conf share run_manage_unmanage_tests False
+    crudini --set /etc/tempest/tempest.conf share run_consistency_group_tests False
+    crudini --set /etc/tempest/tempest.conf share enable_user_rules_for_protocols cifs
+    crudini --set /etc/tempest/tempest.conf share enable_ip_rules_for_protocols nfs
+    crudini --set /etc/tempest/tempest.conf share run_shrink_tests False
+    crudini --set /etc/tempest/tempest.conf share multitenancy_enabled False
+    crudini --set /etc/tempest/tempest.conf share run_replication_tests False
+    crudini --set /etc/tempest/tempest.conf share suppress_errors_in_cleanup True
+    crudini --set /etc/tempest/tempest.conf share share_creation_retry_number 2
+    crudini --set /etc/tempest/tempest.conf share backend_names backend-0
+    crudini --set /etc/tempest/tempest.conf share run_migration_tests True
+    crudini --set /etc/tempest/tempest.conf share multi_backend False
 fi
