@@ -25,13 +25,17 @@ fi
 if [ "x$with_tempest" = "xyes" ]; then
     install_packages openstack-ec2-api-s3 openstack-neutron-lbaas-agent \
         openstack-neutron-vpn-agent openstack-neutron-fwaas \
-        openstack-tempest-test openstack-manila-test
+        openstack-tempest-test
+    if [ "x$with_manila" = "xyes" ]; then
+        install_packages  openstack-manila-test
+    fi
 fi
 
-# TODO: remove when manila packages are part of patterns!
-install_packages openstack-manila openstack-manila-api \
-                 openstack-manila-scheduler openstack-manila-share \
-                 openstack-manila-data python-manila python-manilaclient
+if [ "x$with_manila" = "xyes" ]; then
+    install_packages openstack-manila openstack-manila-api \
+                     openstack-manila-scheduler openstack-manila-share \
+                     openstack-manila-data python-manila python-manilaclient
+fi
 
 if [ "$DB" = "postgresql" ] ; then
     if grep -q "SUSE Linux Enterprise Server 11" /etc/SuSE-release; then
@@ -205,10 +209,13 @@ setup_keystone_authtoken /etc/cinder/cinder.conf cinder
 setup_keystone_authtoken /etc/heat/heat.conf heat
 setup_keystone_authtoken /etc/nova/nova.conf nova
 setup_keystone_authtoken /etc/nova/nova.conf neutron neutron
-setup_keystone_authtoken /etc/manila/manila.conf manila
-setup_keystone_authtoken /etc/manila/manila.conf neutron neutron
-setup_keystone_authtoken /etc/manila/manila.conf nova nova
-setup_keystone_authtoken /etc/manila/manila.conf cinder cinder
+
+if [ "x$with_manila" = "xyes" ]; then
+    setup_keystone_authtoken /etc/manila/manila.conf manila
+    setup_keystone_authtoken /etc/manila/manila.conf neutron neutron
+    setup_keystone_authtoken /etc/manila/manila.conf nova nova
+    setup_keystone_authtoken /etc/manila/manila.conf cinder cinder
+fi
 
 
 #-----------------------------------------
@@ -265,7 +272,11 @@ if [ "x$with_tempest" = "xyes" ]; then
 fi
 
 
-for m in cinder heat nova glance neutron manila; do
+service_list="cinder heat nova glance neutron"
+if [ "x$with_manila" = "xyes" ]; then
+    service_list+=" manila"
+fi
+for m in $service_list; do
     sed -i -e 's/%SERVICE_TENANT_NAME%/service/' \
            -e "s/%SERVICE_PASSWORD%/$ADMIN_PASSWORD/" \
                /etc/$m/*.ini /etc/$m/$m*.conf
@@ -508,32 +519,34 @@ done
 #-----------------------------------------
 # setup OpenStack Manila
 #-----------------------------------------
-# nfsserver is needed for the lvm driver
-install_packages nfs-kernel-server nfs-client nfs-utils
-start_and_enable_service nfsserver
+if [ "x$with_manila" = "xyes" ]; then
+    # nfsserver is needed for the lvm driver
+    install_packages nfs-kernel-server nfs-client nfs-utils
+    start_and_enable_service nfsserver
 
-c="/etc/manila/manila.conf"
-setup_messaging_client $c
-crudini --set $c DEFAULT my_ip "$IP"
-crudini --set $c DEFAULT default_share_type "default"
-crudini --set $c database connection "$DB://manila:${mpw}@${IP}/manila"
-crudini --set $c identity uri $KEYSTONE_PUBLIC_ENDPOINT
-crudini --set $c DEFAULT share_volume_fstype ext3
+    c="/etc/manila/manila.conf"
+    setup_messaging_client $c
+    crudini --set $c DEFAULT my_ip "$IP"
+    crudini --set $c DEFAULT default_share_type "default"
+    crudini --set $c database connection "$DB://manila:${mpw}@${IP}/manila"
+    crudini --set $c identity uri $KEYSTONE_PUBLIC_ENDPOINT
+    crudini --set $c DEFAULT share_volume_fstype ext3
 
-# create and enable a manila backend
-crudini --set $c DEFAULT enabled_share_backends backend-0
-crudini --set $c backend-0 share_driver manila.share.drivers.lvm.LVMShareDriver
-crudini --set $c backend-0 share_backend_name default
-crudini --set $c backend-0 driver_handles_share_servers false
-crudini --set $c backend-0 lvm_share_volume_group manila-shares
-crudini --set $c backend-0 lvm_share_export_ip $IP
+    # create and enable a manila backend
+    crudini --set $c DEFAULT enabled_share_backends backend-0
+    crudini --set $c backend-0 share_driver manila.share.drivers.lvm.LVMShareDriver
+    crudini --set $c backend-0 share_backend_name default
+    crudini --set $c backend-0 driver_handles_share_servers false
+    crudini --set $c backend-0 lvm_share_volume_group manila-shares
+    crudini --set $c backend-0 lvm_share_export_ip $IP
 
-start_and_enable_service openstack-manila-api
-start_and_enable_service openstack-manila-scheduler
-start_and_enable_service openstack-manila-share
-start_and_enable_service openstack-manila-data
+    start_and_enable_service openstack-manila-api
+    start_and_enable_service openstack-manila-scheduler
+    start_and_enable_service openstack-manila-share
+    start_and_enable_service openstack-manila-data
 
-manila type-create default false
+    manila type-create default false
+fi
 
 #-----------------------------------------
 # setup tempest configuration
@@ -575,17 +588,22 @@ if [ "x$with_tempest" = "xyes" -a -e /etc/tempest/tempest.conf ]; then
     crudini --set /etc/tempest/tempest.conf volume-feature-enabled backup false
     crudini --set /etc/tempest/tempest.conf image-feature-enabled deactivate_image true
     # manila share config
-    crudini --set /etc/tempest/tempest.conf share run_manage_unmanage_snapshot_tests False
-    crudini --set /etc/tempest/tempest.conf share run_manage_unmanage_tests False
-    crudini --set /etc/tempest/tempest.conf share run_consistency_group_tests False
-    crudini --set /etc/tempest/tempest.conf share enable_user_rules_for_protocols cifs
-    crudini --set /etc/tempest/tempest.conf share enable_ip_rules_for_protocols nfs
-    crudini --set /etc/tempest/tempest.conf share run_shrink_tests False
-    crudini --set /etc/tempest/tempest.conf share multitenancy_enabled False
-    crudini --set /etc/tempest/tempest.conf share run_replication_tests False
-    crudini --set /etc/tempest/tempest.conf share suppress_errors_in_cleanup True
-    crudini --set /etc/tempest/tempest.conf share share_creation_retry_number 2
-    crudini --set /etc/tempest/tempest.conf share backend_names backend-0
-    crudini --set /etc/tempest/tempest.conf share run_migration_tests True
-    crudini --set /etc/tempest/tempest.conf share multi_backend False
+    if [ "x$with_manila" = "xyes" ]; then
+        crudini --set /etc/tempest/tempest.conf service_available manila True
+        crudini --set /etc/tempest/tempest.conf share run_manage_unmanage_snapshot_tests False
+        crudini --set /etc/tempest/tempest.conf share run_manage_unmanage_tests False
+        crudini --set /etc/tempest/tempest.conf share run_consistency_group_tests False
+        crudini --set /etc/tempest/tempest.conf share enable_user_rules_for_protocols cifs
+        crudini --set /etc/tempest/tempest.conf share enable_ip_rules_for_protocols nfs
+        crudini --set /etc/tempest/tempest.conf share run_shrink_tests False
+        crudini --set /etc/tempest/tempest.conf share multitenancy_enabled False
+        crudini --set /etc/tempest/tempest.conf share run_replication_tests False
+        crudini --set /etc/tempest/tempest.conf share suppress_errors_in_cleanup True
+        crudini --set /etc/tempest/tempest.conf share share_creation_retry_number 2
+        crudini --set /etc/tempest/tempest.conf share backend_names backend-0
+        crudini --set /etc/tempest/tempest.conf share run_migration_tests True
+        crudini --set /etc/tempest/tempest.conf share multi_backend False
+    else
+        crudini --set /etc/tempest/tempest.conf service_available manila False
+    fi
 fi
