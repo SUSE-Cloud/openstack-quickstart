@@ -236,6 +236,22 @@ function get_field {
     done
 }
 
+# Usage: get_or_create_domain <name> <description>
+function get_or_create_domain {
+    local domain_id
+    # Gets domain id
+    domain_id=$(
+        # Gets domain id
+        openstack domain show $1 \
+            -f value -c id 2>/dev/null ||
+        # Creates new domain
+        openstack domain create $1 \
+            --description "$2" \
+            -f value -c id
+    )
+    echo $domain_id
+}
+
 # Usage: get_or_create_group <groupname> <domain> [<description>]
 function get_or_create_group {
     local desc="${3:-}"

@@ -350,3 +350,20 @@ if [[ "$ENABLED_SERVICES" =~ "m-api" ]]; then
         "$MANILA_SERVICE_PROTOCOL://$MANILA_SERVICE_HOST:$MANILA_SERVICE_PORT/v2/\$(tenant_id)s" \
         "$MANILA_SERVICE_PROTOCOL://$MANILA_SERVICE_HOST:$MANILA_SERVICE_PORT/v2/\$(tenant_id)s"
 fi
+
+# Magnum
+if [[ "$ENABLED_SERVICES" =~ "magnum-api" ]]; then
+    MAGNUM_SERVICE_PROTOCOL=http
+    MAGNUM_SERVICE_HOST=$SERVICE_HOST
+    MAGNUM_SERVICE_PORT=${MAGNUM_SERVICE_PORT:-9511}
+
+    create_service_user "magnum" "admin"
+
+    get_or_create_service "magnum" "container" "Magnum Container Service"
+    get_or_create_endpoint \
+        "container" \
+        "RegionOne" \
+        "$MAGNUM_SERVICE_PROTOCOL://$MAGNUM_SERVICE_HOST:$MAGNUM_SERVICE_PORT/v1" \
+        "$MAGNUM_SERVICE_PROTOCOL://$MAGNUM_SERVICE_HOST:$MAGNUM_SERVICE_PORT/v1" \
+        "$MAGNUM_SERVICE_PROTOCOL://$MAGNUM_SERVICE_HOST:$MAGNUM_SERVICE_PORT/v1"
+fi
