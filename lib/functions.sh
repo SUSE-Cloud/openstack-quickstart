@@ -188,10 +188,12 @@ EOF
 }
 
 function setup_messaging_client() {
-    conf=$1
+    local conf=$1
+    local ip=$2
+    local pw=$3
     [ -e "$conf" ] || return 0
 
-    crudini --set $conf oslo_messaging_rabbit rabbit_host $IP
+    crudini --set $conf oslo_messaging_rabbit rabbit_host $ip
     crudini --set $conf oslo_messaging_rabbit rabbit_userid openstack
     crudini --set $conf oslo_messaging_rabbit rabbit_password $pw
 }

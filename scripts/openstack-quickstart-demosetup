@@ -449,7 +449,7 @@ fi
 ## setup heat configuration
 #-----------------------------------------
 
-setup_messaging_client /etc/heat/heat.conf
+setup_messaging_client /etc/heat/heat.conf $IP $pw
 crudini --set /etc/heat/heat.conf database connection $DB://heat:$mpw@$IP/heat
 crudini --set /etc/heat/heat.conf DEFAULT deferred_auth_method trusts
 crudini --set /etc/heat/heat.conf DEFAULT num_engine_workers "1"
@@ -525,7 +525,7 @@ if [ "x$with_manila" = "xyes" ]; then
     start_and_enable_service nfsserver
 
     c="/etc/manila/manila.conf"
-    setup_messaging_client $c
+    setup_messaging_client $c $IP $pw
     crudini --set $c DEFAULT my_ip "$IP"
     crudini --set $c DEFAULT default_share_type "default"
     crudini --set $c database connection "$DB://manila:${mpw}@${IP}/manila"
