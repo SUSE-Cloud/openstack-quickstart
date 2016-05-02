@@ -1,207 +1,8 @@
 #!/bin/bash
 
-#################################################
-# common functions from devstack/functions-common
-#################################################
+. /etc/openstackquickstartrc
 
-# Grab a numbered field from python prettytable output
-# Fields are numbered starting with 1
-# Reverse syntax is supported: -1 is the last field, -2 is second to last, etc.
-# get_field field-number
-function get_field {
-    local data field
-    while read data; do
-        if [ "$1" -lt 0 ]; then
-            field="(\$(NF$1))"
-        else
-            field="\$$(($1 + 1))"
-        fi
-        echo "$data" | awk -F'[ \t]*\\|[ \t]*' "{print $field}"
-    done
-}
-
-# Usage: get_or_create_group <groupname> <domain> [<description>]
-function get_or_create_group {
-    local desc="${3:-}"
-    local group_id
-    # Gets group id
-    group_id=$(
-        # Creates new group with --or-show
-        openstack group create $1 \
-            --domain $2 --description "$desc" --or-show \
-            -f value -c id
-    )
-    echo $group_id
-}
-
-# Usage: get_or_create_user <username> <password> <domain> [<email>]
-function get_or_create_user {
-    local user_id
-    if [[ ! -z "$4" ]]; then
-        local email="--email=$4"
-    else
-        local email=""
-    fi
-    # Gets user id
-    user_id=$(
-        # Creates new user with --or-show
-        openstack user create \
-            $1 \
-            --password "$2" \
-            --domain=$3 \
-            $email \
-            --or-show \
-            -f value -c id
-    )
-    echo $user_id
-}
-
-# Usage: get_or_create_project <name> <domain>
-function get_or_create_project {
-    local project_id
-    project_id=$(
-        # Creates new project with --or-show
-        openstack project create $1 \
-            --domain=$2 \
-            --or-show -f value -c id
-    )
-    echo $project_id
-}
-
-# Usage: get_or_create_role <name>
-function get_or_create_role {
-    local role_id
-    role_id=$(
-        # Creates role with --or-show
-        openstack role create $1 \
-            --or-show -f value -c id
-    )
-    echo $role_id
-}
-
-# Usage: get_or_add_user_project_role <role> <user> <project>
-function get_or_add_user_project_role {
-    local user_role_id
-    # Gets user role id
-    user_role_id=$(openstack role list \
-        --user $2 \
-        --column "ID" \
-        --project $3 \
-        --column "Name" \
-        | grep " $1 " | get_field 1)
-    if [[ -z "$user_role_id" ]]; then
-        # Adds role to user and get it
-        openstack role add $1 \
-            --user $2 \
-            --project $3
-        user_role_id=$(openstack role list \
-            --user $2 \
-            --column "ID" \
-            --project $3 \
-            --column "Name" \
-            | grep " $1 " | get_field 1)
-    fi
-    echo $user_role_id
-}
-
-# Usage: get_or_add_user_domain_role <role> <user> <domain>
-function get_or_add_user_domain_role {
-    local user_role_id
-    # Gets user role id
-    user_role_id=$(openstack role list \
-        --user $2 \
-        --column "ID" \
-        --domain $3 \
-        --column "Name" \
-        | grep " $1 " | get_field 1)
-    if [[ -z "$user_role_id" ]]; then
-        # Adds role to user and get it
-        openstack role add $1 \
-            --user $2 \
-            --domain $3
-        user_role_id=$(openstack role list \
-            --user $2 \
-            --column "ID" \
-            --domain $3 \
-            --column "Name" \
-            | grep " $1 " | get_field 1)
-    fi
-    echo $user_role_id
-}
-
-# Usage: get_or_add_group_project_role <role> <group> <project>
-function get_or_add_group_project_role {
-    local group_role_id
-    # Gets group role id
-    group_role_id=$(openstack role list \
-        --group $2 \
-        --project $3 \
-        -c "ID" -f value)
-    if [[ -z "$group_role_id" ]]; then
-        # Adds role to group and get it
-        openstack role add $1 \
-            --group $2 \
-            --project $3
-        group_role_id=$(openstack role list \
-            --group $2 \
-            --project $3 \
-            -c "ID" -f value)
-    fi
-    echo $group_role_id
-}
-
-# Usage: get_or_create_service <name> <type> <description>
-function get_or_create_service {
-    local service_id
-    # Gets service id
-    service_id=$(
-        # Gets service id
-        openstack service show $2 -f value -c id 2>/dev/null ||
-        # Creates new service if not exists
-        openstack service create \
-            $2 \
-            --name $1 \
-            --description="$3" \
-            -f value -c id
-    )
-    echo $service_id
-}
-
-# Usage: _get_or_create_endpoint_with_interface <service> <interface> <url> <region>
-function _get_or_create_endpoint_with_interface {
-    local endpoint_id
-    endpoint_id=$(openstack endpoint list \
-        --service $1 \
-        --interface $2 \
-        --region $4 \
-        -c ID -f value)
-    if [[ -z "$endpoint_id" ]]; then
-        # Creates new endpoint
-        endpoint_id=$(openstack endpoint create \
-            $1 $2 $3 --region $4 -f value -c id)
-    fi
-
-    echo $endpoint_id
-}
-
-# Usage: get_or_create_endpoint <service> <region> <publicurl> <adminurl> <internalurl>
-function get_or_create_endpoint {
-    # NOTE(jamielennnox): when converting to v3 endpoint creation we go from
-    # creating one endpoint with multiple urls to multiple endpoints each with
-    # a different interface.  To maintain the existing function interface we
-    # create 3 endpoints and return the id of the public one. In reality
-    # returning the public id will not make a lot of difference as there are no
-    # scenarios currently that use the returned id. Ideally this behaviour
-    # should be pushed out to the service setups and let them create the
-    # endpoints they need.
-    local public_id
-    public_id=$(_get_or_create_endpoint_with_interface $1 public $3 $2)
-    _get_or_create_endpoint_with_interface $1 admin $4 $2
-    _get_or_create_endpoint_with_interface $1 internal $5 $2
-
-    # return the public id to indicate success, and this is the endpoint most likely wanted
-    echo $public_id
-}
+. /usr/lib/openstack-quickstart/functions.sh
 
 #################################################
 # functions from devstack lib/keystone
@@ -548,4 +349,21 @@ if [[ "$ENABLED_SERVICES" =~ "m-api" ]]; then
         "$MANILA_SERVICE_PROTOCOL://$MANILA_SERVICE_HOST:$MANILA_SERVICE_PORT/v2/\$(tenant_id)s" \
         "$MANILA_SERVICE_PROTOCOL://$MANILA_SERVICE_HOST:$MANILA_SERVICE_PORT/v2/\$(tenant_id)s" \
         "$MANILA_SERVICE_PROTOCOL://$MANILA_SERVICE_HOST:$MANILA_SERVICE_PORT/v2/\$(tenant_id)s"
+fi
+
+# Magnum
+if [[ "$ENABLED_SERVICES" =~ "magnum-api" ]]; then
+    MAGNUM_SERVICE_PROTOCOL=http
+    MAGNUM_SERVICE_HOST=$SERVICE_HOST
+    MAGNUM_SERVICE_PORT=${MAGNUM_SERVICE_PORT:-9511}
+
+    create_service_user "magnum" "admin"
+
+    get_or_create_service "magnum" "container" "Magnum Container Service"
+    get_or_create_endpoint \
+        "container" \
+        "RegionOne" \
+        "$MAGNUM_SERVICE_PROTOCOL://$MAGNUM_SERVICE_HOST:$MAGNUM_SERVICE_PORT/v1" \
+        "$MAGNUM_SERVICE_PROTOCOL://$MAGNUM_SERVICE_HOST:$MAGNUM_SERVICE_PORT/v1" \
+        "$MAGNUM_SERVICE_PROTOCOL://$MAGNUM_SERVICE_HOST:$MAGNUM_SERVICE_PORT/v1"
 fi

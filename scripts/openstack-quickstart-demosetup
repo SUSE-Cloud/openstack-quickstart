@@ -37,6 +37,13 @@ if [ "x$with_manila" = "xyes" ]; then
                      openstack-manila-data python-manila python-manilaclient
 fi
 
+if [ "x$with_magnum" = "xyes" ]; then
+    install_packages openstack-magnum openstack-magnum-api \
+                     openstack-magnum-conductor python-magnum \
+                     python-magnumclient
+fi
+
+
 if [ "$DB" = "postgresql" ] ; then
     if grep -q "SUSE Linux Enterprise Server 11" /etc/SuSE-release; then
         install_packages postgresql91-server python-psycopg2
@@ -105,7 +112,8 @@ start_and_enable_service iscsid
 # Set up the database
 if [ "$DB" = "postgresql" ] ; then
     sudo -u postgres dropdb keystone || true # needed for keystone_data.sh
-    for DBNAME in nova nova_api cinder keystone glance horizon heat neutron manila; do
+    for DBNAME in nova nova_api cinder keystone glance horizon heat neutron \
+                       manila magnum; do
         # use ALTER if CREATE fails: the role probably already exists
         # in that case
         sudo -u postgres psql -c "CREATE ROLE $DBNAME PASSWORD '$mpw' LOGIN;" || \
@@ -217,6 +225,10 @@ if [ "x$with_manila" = "xyes" ]; then
     setup_keystone_authtoken /etc/manila/manila.conf cinder cinder
 fi
 
+if [ "x$with_magnum" = "xyes" ]; then
+    setup_keystone_authtoken /etc/magnum/magnum.conf magnum
+    setup_keystone_authtoken /etc/magnum/magnum.conf magnum keystone_auth
+fi
 
 #-----------------------------------------
 ## setup glance configuration
@@ -276,6 +288,9 @@ service_list="cinder heat nova glance neutron"
 if [ "x$with_manila" = "xyes" ]; then
     service_list+=" manila"
 fi
+if [ "x$with_magnum" = "xyes" ]; then
+    service_list+=" magnum"
+fi
 for m in $service_list; do
     sed -i -e 's/%SERVICE_TENANT_NAME%/service/' \
            -e "s/%SERVICE_PASSWORD%/$ADMIN_PASSWORD/" \
@@ -301,6 +316,10 @@ fi
 if [ "x$with_tempest" = "xyes" ]; then
     ENABLED_SERVICES+=",tempest"
 fi
+if [ "x$with_magnum" = "xyes" ]; then
+    ENABLED_SERVICES+=",magnum-api,magnum-cond"
+fi
+
 
 SERVICE_ENDPOINT=$KEYSTONE_AUTH_PROTOCOL://$KEYSTONE_AUTH_HOST:$KEYSTONE_AUTH_PORT
 
@@ -449,7 +468,7 @@ fi
 ## setup heat configuration
 #-----------------------------------------
 
-setup_messaging_client /etc/heat/heat.conf
+setup_messaging_client /etc/heat/heat.conf $IP $pw
 crudini --set /etc/heat/heat.conf database connection $DB://heat:$mpw@$IP/heat
 crudini --set /etc/heat/heat.conf DEFAULT deferred_auth_method trusts
 crudini --set /etc/heat/heat.conf DEFAULT num_engine_workers "1"
@@ -525,7 +544,7 @@ if [ "x$with_manila" = "xyes" ]; then
     start_and_enable_service nfsserver
 
     c="/etc/manila/manila.conf"
-    setup_messaging_client $c
+    setup_messaging_client $c $IP $pw
     crudini --set $c DEFAULT my_ip "$IP"
     crudini --set $c DEFAULT default_share_type "default"
     crudini --set $c database connection "$DB://manila:${mpw}@${IP}/manila"
@@ -546,6 +565,42 @@ if [ "x$with_manila" = "xyes" ]; then
     start_and_enable_service openstack-manila-data
 
     manila type-create default false
+fi
+
+#-----------------------------------------
+# setup OpenStack Magnum
+#-----------------------------------------
+if [ "x$with_magnum" = "xyes" ]; then
+    # setup an image
+    #MAGNUM_GUEST_IMAGE_URL=${MAGNUM_GUEST_IMAGE_URL:-"https://fedorapeople.org/groups/magnum/fedora-23-atomic-20160405.qcow2"}
+    #wget --progress=dot:mega -O /tmp/magnum-test-image.qcow2 $MAGNUM_GUEST_IMAGE_URL
+    #openstack image create --public --container-format bare \
+    #          --disk-format qcow2 \
+    #          --property os_distro=fedora-atomic \
+    #          --file /tmp/magnum-test-image.qcow2 \
+    #          magnum-fedora-atomic
+    # create key
+    #ssh-keygen -f ~/.ssh/id_rsa_magnum -t rsa -N ''
+    #nova keypair-add --pub-key ~/.ssh/id_rsa_magnum.pub magnum
+
+    c="/etc/magnum/magnum.conf"
+    setup_messaging_client $c $IP $pw
+
+    trustee_domain_id=$(get_or_create_domain magnum 'Owns users and projects created by magnum')
+    trustee_domain_admin_id=$(get_or_create_user trustee_domain_admin $ADMIN_PASSWORD $trustee_domain_id)
+    openstack --os-auth-url $KEYSTONE_PUBLIC_ENDPOINT_V3 \
+              --os-identity-api-version 3 role add \
+              --user $trustee_domain_admin_id --domain $trustee_domain_id \
+              admin
+    crudini --set $c trust trustee_domain_id $trustee_domain_id
+    crudini --set $c trust trustee_domain_admin_id $trustee_domain_admin_id
+    crudini --set $c trust trustee_domain_admin_password $ADMIN_PASSWORD
+    crudini --set $c database connection "$DB://magnum:${mpw}@${IP}/magnum"
+    crudini --set $c cinder_client region_name RegionOne
+    crudini --set $c api host $IP
+
+    start_and_enable_service openstack-magnum-api
+    start_and_enable_service openstack-magnum-conductor
 fi
 
 #-----------------------------------------

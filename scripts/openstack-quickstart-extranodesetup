@@ -15,7 +15,7 @@ disable_firewall_and_enable_forwarding
 ## setup neutron configuration
 #-----------------------------------------
 
-setup_messaging_client /etc/neutron/neutron.conf
+setup_messaging_client /etc/neutron/neutron.conf $IP $pw
 setup_keystone_authtoken /etc/neutron/neutron.conf
 
 ownip=`ip addr show dev eth0 | perl -ne 'm/inet (\d+\.\d+\.\d+\.\d+)/ && print $1'`
@@ -42,7 +42,7 @@ crudini --set /etc/neutron/l3_agent.ini DEFAULT use_namespaces true
 ## setup nova configuration
 #-----------------------------------------
 
-setup_messaging_client /etc/nova/nova.conf
+setup_messaging_client /etc/nova/nova.conf $IP $pw
 setup_keystone_authtoken /etc/nova/nova.conf
 setup_nova_compute
 

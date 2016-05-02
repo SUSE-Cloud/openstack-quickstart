@@ -29,6 +29,9 @@ with_horizon=yes
 # Setup Manila
 with_manila=yes
 
+# Setup Magnum
+with_magnum=no
+
 # Setup Tempest ?
 with_tempest=no
 
