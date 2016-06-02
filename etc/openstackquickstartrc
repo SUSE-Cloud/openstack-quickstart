@@ -23,6 +23,9 @@ DB=postgresql
 
 SERVICE_TOKEN=999888777666
 
+# Setup Barbican
+with_barbican=no
+
 # Setup Horizon dashboard
 with_horizon=yes
 

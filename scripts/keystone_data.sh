@@ -367,3 +367,20 @@ if [[ "$ENABLED_SERVICES" =~ "magnum-api" ]]; then
         "$MAGNUM_SERVICE_PROTOCOL://$MAGNUM_SERVICE_HOST:$MAGNUM_SERVICE_PORT/v1" \
         "$MAGNUM_SERVICE_PROTOCOL://$MAGNUM_SERVICE_HOST:$MAGNUM_SERVICE_PORT/v1"
 fi
+
+# Barbican
+if [[ "$ENABLED_SERVICES" =~ "barbican-api" ]]; then
+    BARBICAN_SERVICE_PROTOCOL=http
+    BARBICAN_SERVICE_HOST=$SERVICE_HOST
+    BARBICAN_SERVICE_PORT=${BARBICAN_SERVICE_PORT:-9311}
+
+    create_service_user "barbican" "admin"
+
+    get_or_create_service "barbican" "key-manager" "Barbican Key Manager Service"
+    get_or_create_endpoint \
+        "key-manager" \
+        "RegionOne" \
+        "$BARBICAN_SERVICE_PROTOCOL://$BARBICAN_SERVICE_HOST:$BARBICAN_SERVICE_PORT" \
+        "$BARBICAN_SERVICE_PROTOCOL://$BARBICAN_SERVICE_HOST:$BARBICAN_SERVICE_PORT" \
+        "$BARBICAN_SERVICE_PROTOCOL://$BARBICAN_SERVICE_HOST:$BARBICAN_SERVICE_PORT"
+fi
