@@ -41,7 +41,7 @@ with_tempest=no
 # Setup Nova Compute ?
 node_is_compute=yes
 
-# network bridge devive name
+# network bridge device name
 br=br0
 
 # fixed network VLAN
