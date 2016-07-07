@@ -239,14 +239,6 @@ fi
 if [ "x$with_barbican" = "xyes" ]; then
     setup_keystone_authtoken /etc/barbican/barbican.conf barbican
     crudini --set /etc/barbican/barbican.conf keystone_authtoken auth_version 'v3.0'
-    # FIXME: take into account differences between Mitaka and Master. We will
-    #        no longer need any of these once Barbican upstream defaults to
-    #        using Keystone authentication.
-    if grep filter:keystone_authtoken /etc/barbican/barbican-api-paste.ini; then
-      crudini --set /etc/barbican/barbican-api-paste.ini 'pipeline:barbican_api' 'pipeline' 'cors keystone_authtoken context apiapp'
-    else
-      crudini --set /etc/barbican/barbican-api-paste.ini 'pipeline:barbican_api' 'pipeline' 'cors authtoken context apiapp'
-    fi
 fi
 
 #-----------------------------------------
