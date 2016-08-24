@@ -61,6 +61,12 @@ function stop_and_disable_service () {
     i=/etc/init.d/$1
     if [ -x $i ] ; then
         $i stop
+    elif [ -n "$(type -p systemctl)" ]; then
+        s=${1}.service
+        if [ $(systemctl cat $s 2>/dev/null| wc -l) -gt 0 ]; then
+            systemctl stop $s || :
+            systemctl disable $s || :
+        fi
     fi
     chkconfig -d $1
 }
