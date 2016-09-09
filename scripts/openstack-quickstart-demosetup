@@ -318,9 +318,74 @@ crudini --set /etc/keystone/keystone.conf DEFAULT admin_token "$SERVICE_TOKEN"
 crudini --set /etc/keystone/keystone.conf DEFAULT public_workers 2
 crudini --set /etc/keystone/keystone.conf DEFAULT admin_workers 2
 
-/etc/init.d/openstack-keystone restart
+# keystone needs now apache with wsgi (modified version
+# https://github.com/openstack/keystone/blob/master/httpd/wsgi-keystone.conf )
+cat <<EOF > /etc/apache2/vhosts.d/keystone.conf
+Listen 5000
+Listen 35357
+
+<VirtualHost *:5000>
+    WSGIDaemonProcess keystone-public processes=2 threads=1 user=keystone group=keystone display-name=%{GROUP}
+    WSGIProcessGroup keystone-public
+    WSGIScriptAlias / /usr/bin/keystone-wsgi-public
+    WSGIApplicationGroup %{GLOBAL}
+    WSGIPassAuthorization On
+    LimitRequestBody 114688
+    ErrorLogFormat "%{cu}t %M"
+    ErrorLog /var/log/keystone/keystone.log
+    CustomLog /var/log/keystone/keystone_access.log combined
+
+    <Directory /usr/bin>
+        Require all granted
+    </Directory>
+</VirtualHost>
+
+<VirtualHost *:35357>
+    WSGIDaemonProcess keystone-admin processes=2 threads=1 user=keystone group=keystone display-name=%{GROUP}
+    WSGIProcessGroup keystone-admin
+    WSGIScriptAlias / /usr/bin/keystone-wsgi-admin
+    WSGIApplicationGroup %{GLOBAL}
+    WSGIPassAuthorization On
+    LimitRequestBody 114688
+    ErrorLogFormat "%{cu}t %M"
+    ErrorLog /var/log/keystone/keystone.log
+    CustomLog /var/log/keystone/keystone_access.log combined
+
+    <Directory /usr/bin>
+        Require all granted
+    </Directory>
+</VirtualHost>
+
+Alias /identity /usr/bin/keystone-wsgi-public
+<Location /identity>
+    SetHandler wsgi-script
+    Options +ExecCGI
+
+    WSGIProcessGroup keystone-public
+    WSGIApplicationGroup %{GLOBAL}
+    WSGIPassAuthorization On
+</Location>
+
+Alias /identity_admin /usr/bin/keystone-wsgi-admin
+<Location /identity_admin>
+    SetHandler wsgi-script
+    Options +ExecCGI
+
+    WSGIProcessGroup keystone-admin
+    WSGIApplicationGroup %{GLOBAL}
+    WSGIPassAuthorization On
+</Location>
+EOF
+
+a2enmod wsgi
+# apache needs a restart for the new vhost
+stop_and_disable_service apache2
+start_and_enable_service apache2
 
 sleep 5
+
+# migrate database for keystone (previously done in the keystone init script)
+su keystone -s /bin/sh -c "keystone-manage --config-file=/etc/keystone/keystone.conf db_sync"
 
 keystone_data=/usr/lib/devstack/keystone_data.sh
 ENABLED_SERVICES="g-api,g-reg,key,n-api,n-cpu,n-net,n-vol,c-api,n-sch,n-novnc,n-xvnc,q-svc,heat,m-api,mysql,rabbit"
@@ -376,7 +441,7 @@ crudini --set /etc/neutron/l3_agent.ini DEFAULT use_namespaces true
 crudini --set /etc/neutron/metadata_agent.ini DEFAULT metadata_proxy_shared_secret $metadata_secret
 
 if [ "x$with_tempest" = "xyes" ]; then
-    crudini --set /etc/neutron/neutron.conf DEFAULT service_plugins "neutron.services.loadbalancer.plugin.LoadBalancerPlugin, neutron.services.l3_router.l3_router_plugin.L3RouterPlugin, neutron.services.vpn.plugin.VPNDriverPlugin, neutron.services.metering.metering_plugin.MeteringPlugin, neutron.services.firewall.fwaas_plugin.FirewallPlugin"
+    crudini --set /etc/neutron/neutron.conf DEFAULT service_plugins "neutron_lbaas.services.loadbalancer.plugin.LoadBalancerPluginv2, neutron.services.l3_router.l3_router_plugin.L3RouterPlugin, neutron.services.vpn.plugin.VPNDriverPlugin, neutron.services.metering.metering_plugin.MeteringPlugin, neutron.services.firewall.fwaas_plugin.FirewallPlugin"
 fi
 
 start_and_enable_service rabbitmq-server
