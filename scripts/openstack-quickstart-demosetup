@@ -462,8 +462,9 @@ do
 done
 
 if [ "x$with_tempest" = "xyes" ]; then
+    crudini --set /etc/neutron/neutron_lbaas.conf service_providers service_provider "LOADBALANCERV2:Haproxy:neutron_lbaas.services.loadbalancer.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default"
     crudini --set /etc/neutron/lbaas_agent.ini DEFAULT interface_driver neutron.agent.linux.interface.BridgeInterfaceDriver
-    start_and_enable_service openstack-neutron-lbaas-agent
+    start_and_enable_service openstack-neutron-lbaasv2-agent
 fi
 
 ### wait until neutron will start
