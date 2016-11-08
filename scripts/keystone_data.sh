@@ -167,17 +167,17 @@ if [[ "$ENABLED_SERVICES" =~ "n-cpu" ]]; then
     get_or_create_endpoint \
         "compute_legacy" \
         "RegionOne" \
-        "http://$SERVICE_HOST:8774/v2/\$(tenant_id)s" \
-        "http://$SERVICE_HOST:8774/v2/\$(tenant_id)s" \
-        "http://$SERVICE_HOST:8774/v2/\$(tenant_id)s"
+        "http://$SERVICE_HOST:8774/v2/\$(project_id)s" \
+        "http://$SERVICE_HOST:8774/v2/\$(project_id)s" \
+        "http://$SERVICE_HOST:8774/v2/\$(project_id)s"
 
     get_or_create_service "nova" "compute" "Nova Compute Service"
     get_or_create_endpoint \
         "compute" \
         "RegionOne" \
-        "http://$SERVICE_HOST:8774/v2.1/\$(tenant_id)s" \
-        "http://$SERVICE_HOST:8774/v2.1/\$(tenant_id)s" \
-        "http://$SERVICE_HOST:8774/v2.1/\$(tenant_id)s"
+        "http://$SERVICE_HOST:8774/v2.1/\$(project_id)s" \
+        "http://$SERVICE_HOST:8774/v2.1/\$(project_id)s" \
+        "http://$SERVICE_HOST:8774/v2.1/\$(project_id)s"
 
     # Nova needs ResellerAdmin role to download images when accessing
     # swift through the s3 api.
@@ -197,9 +197,9 @@ if [[ "$ENABLED_SERVICES" =~ "heat" ]]; then
     get_or_create_endpoint \
         "orchestration" \
         "RegionOne" \
-        "http://$SERVICE_HOST:$HEAT_API_PORT/v1/\$(tenant_id)s" \
-        "http://$SERVICE_HOST:$HEAT_API_PORT/v1/\$(tenant_id)s" \
-        "http://$SERVICE_HOST:$HEAT_API_PORT/v1/\$(tenant_id)s"
+        "http://$SERVICE_HOST:$HEAT_API_PORT/v1/\$(project_id)s" \
+        "http://$SERVICE_HOST:$HEAT_API_PORT/v1/\$(project_id)s" \
+        "http://$SERVICE_HOST:$HEAT_API_PORT/v1/\$(project_id)s"
 
     get_or_create_service "heat-cfn" "cloudformation" "Heat CloudFormation Service"
     get_or_create_endpoint \
@@ -248,9 +248,9 @@ if [[ "$ENABLED_SERVICES" =~ "swift" ]]; then
     get_or_create_endpoint \
         "object-store" \
         "RegionOne" \
-        "http://$SERVICE_HOST:8080/v1/AUTH_\$(tenant_id)s" \
-        "http://$SERVICE_HOST:8080/v1/AUTH_\$(tenant_id)s" \
-        "http://$SERVICE_HOST:8080/v1/AUTH_\$(tenant_id)s"
+        "http://$SERVICE_HOST:8080/v1/AUTH_\$(project_id)s" \
+        "http://$SERVICE_HOST:8080/v1/AUTH_\$(project_id)s" \
+        "http://$SERVICE_HOST:8080/v1/AUTH_\$(project_id)s"
 fi
 
 if [[ "$ENABLED_SERVICES" =~ "q-svc" ]]; then
@@ -296,17 +296,17 @@ if [[ "$ENABLED_SERVICES" =~ "c-api" ]]; then
     get_or_create_endpoint \
         "volume" \
         "RegionOne" \
-        "http://$SERVICE_HOST:8776/v1/\$(tenant_id)s" \
-        "http://$SERVICE_HOST:8776/v1/\$(tenant_id)s" \
-        "http://$SERVICE_HOST:8776/v1/\$(tenant_id)s"
+        "http://$SERVICE_HOST:8776/v1/\$(project_id)s" \
+        "http://$SERVICE_HOST:8776/v1/\$(project_id)s" \
+        "http://$SERVICE_HOST:8776/v1/\$(project_id)s"
 
     get_or_create_service "cinderv2" "volumev2" "Cinder Volume Service V2"
     get_or_create_endpoint \
         "volumev2" \
         "RegionOne" \
-        "http://$SERVICE_HOST:8776/v2/\$(tenant_id)s" \
-        "http://$SERVICE_HOST:8776/v2/\$(tenant_id)s" \
-        "http://$SERVICE_HOST:8776/v2/\$(tenant_id)s"
+        "http://$SERVICE_HOST:8776/v2/\$(project_id)s" \
+        "http://$SERVICE_HOST:8776/v2/\$(project_id)s" \
+        "http://$SERVICE_HOST:8776/v2/\$(project_id)s"
 fi
 
 # Ceilometer
@@ -338,17 +338,17 @@ if [[ "$ENABLED_SERVICES" =~ "m-api" ]]; then
     get_or_create_endpoint \
         "share" \
         "RegionOne" \
-        "$MANILA_SERVICE_PROTOCOL://$MANILA_SERVICE_HOST:$MANILA_SERVICE_PORT/v1/\$(tenant_id)s" \
-        "$MANILA_SERVICE_PROTOCOL://$MANILA_SERVICE_HOST:$MANILA_SERVICE_PORT/v1/\$(tenant_id)s" \
-        "$MANILA_SERVICE_PROTOCOL://$MANILA_SERVICE_HOST:$MANILA_SERVICE_PORT/v1/\$(tenant_id)s"
+        "$MANILA_SERVICE_PROTOCOL://$MANILA_SERVICE_HOST:$MANILA_SERVICE_PORT/v1/\$(project_id)s" \
+        "$MANILA_SERVICE_PROTOCOL://$MANILA_SERVICE_HOST:$MANILA_SERVICE_PORT/v1/\$(project_id)s" \
+        "$MANILA_SERVICE_PROTOCOL://$MANILA_SERVICE_HOST:$MANILA_SERVICE_PORT/v1/\$(project_id)s"
 
     get_or_create_service "manilav2" "sharev2" "Manila Shared Filesystem Service V2"
     get_or_create_endpoint \
         "sharev2" \
         "RegionOne" \
-        "$MANILA_SERVICE_PROTOCOL://$MANILA_SERVICE_HOST:$MANILA_SERVICE_PORT/v2/\$(tenant_id)s" \
-        "$MANILA_SERVICE_PROTOCOL://$MANILA_SERVICE_HOST:$MANILA_SERVICE_PORT/v2/\$(tenant_id)s" \
-        "$MANILA_SERVICE_PROTOCOL://$MANILA_SERVICE_HOST:$MANILA_SERVICE_PORT/v2/\$(tenant_id)s"
+        "$MANILA_SERVICE_PROTOCOL://$MANILA_SERVICE_HOST:$MANILA_SERVICE_PORT/v2/\$(project_id)s" \
+        "$MANILA_SERVICE_PROTOCOL://$MANILA_SERVICE_HOST:$MANILA_SERVICE_PORT/v2/\$(project_id)s" \
+        "$MANILA_SERVICE_PROTOCOL://$MANILA_SERVICE_HOST:$MANILA_SERVICE_PORT/v2/\$(project_id)s"
 fi
 
 # Magnum
