@@ -307,6 +307,14 @@ if [[ "$ENABLED_SERVICES" =~ "c-api" ]]; then
         "http://$SERVICE_HOST:8776/v2/\$(project_id)s" \
         "http://$SERVICE_HOST:8776/v2/\$(project_id)s" \
         "http://$SERVICE_HOST:8776/v2/\$(project_id)s"
+
+    get_or_create_service "cinderv3" "volumev3" "Cinder Volume Service V3"
+    get_or_create_endpoint \
+        "volumev3" \
+        "RegionOne" \
+        "http://$SERVICE_HOST:8776/v3/\$(project_id)s" \
+        "http://$SERVICE_HOST:8776/v3/\$(project_id)s" \
+        "http://$SERVICE_HOST:8776/v3/\$(project_id)s"
 fi
 
 # Ceilometer
