@@ -135,6 +135,11 @@ SERVICE_ENDPOINT=$SERVICE_ENDPOINT
 SERVICE_TENANT_NAME=${SERVICE_TENANT_NAME:-service}
 SERVICE_PROJECT_NAME=${SERVICE_TENANT_NAME:-service}
 
+# setup fernet tokens
+keystone-manage fernet_setup \
+    --keystone-user keystone \
+    --keystone-group keystone
+
 # bootstrap keystone (also creates endpoint and service in catalog)
 keystone-manage bootstrap \
                 --bootstrap-username admin \
