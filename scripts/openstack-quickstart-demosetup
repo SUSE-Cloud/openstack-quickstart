@@ -561,18 +561,18 @@ crudini --set /etc/heat/heat.conf trustee auth_plugin password
 crudini --set /etc/heat/heat.conf trustee auth_url "http://$IP:35357/"
 
 
-HEAT_DOMAIN_ID=$(openstack --os-token $SERVICE_TOKEN --os-url=$KEYSTONE_PUBLIC_ENDPOINT_V3 \
+HEAT_DOMAIN_ID=$(openstack --os-auth-url=$KEYSTONE_PUBLIC_ENDPOINT_V3 \
     --os-identity-api-version=3 domain create heat \
     --description "Owns users and projects created by heat" \
     | awk '/id/  { print $4 } ')
 
 crudini --set /etc/heat/heat.conf DEFAULT stack_user_domain $HEAT_DOMAIN_ID
 
-openstack --os-token $SERVICE_TOKEN --os-url=$KEYSTONE_PUBLIC_ENDPOINT_V3 \
+openstack --os-auth-url=$KEYSTONE_PUBLIC_ENDPOINT_V3 \
     --os-identity-api-version=3 user create --password $ADMIN_PASSWORD \
     --domain $HEAT_DOMAIN_ID heat_domain_admin \
     --description "Manages users and projects created by heat"
-openstack --os-token $SERVICE_TOKEN --os-url=$KEYSTONE_PUBLIC_ENDPOINT_V3 \
+openstack --os-auth-url=$KEYSTONE_PUBLIC_ENDPOINT_V3 \
     --os-identity-api-version=3 role add \
     --user heat_domain_admin --domain ${HEAT_DOMAIN_ID} admin
 
