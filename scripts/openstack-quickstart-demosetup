@@ -56,6 +56,13 @@ if [ "x$with_sahara" = "xyes" ]; then
 		     python-saharaclient
 fi
 
+if [ "x$with_designate" = "xyes" ]; then
+    install_packages openstack-designate openstack-designate-api\
+                     openstack-designate-central openstack-designate-producer \
+                     openstack-designate-sink openstack-designate-worker \
+                     python-designateclient
+fi
+
 
 if [ "$DB" = "postgresql" ] ; then
     if grep -q "SUSE Linux Enterprise Server 11" /etc/SuSE-release; then
@@ -101,7 +108,7 @@ if [ "$DB" = "postgresql" ] ; then
     fi
 else
     echo | mysql -u root || pwquery=-p
-    for DBNAME in nova cinder keystone glance horizon neutron manila barbican sahara ; do
+    for DBNAME in nova cinder keystone glance horizon neutron manila barbican sahara designate ; do
         echo "
         set global character_set_server=latin1;
         set session character_set_server=latin1;
@@ -126,7 +133,7 @@ start_and_enable_service iscsid
 if [ "$DB" = "postgresql" ] ; then
     sudo -u postgres dropdb keystone || true # needed for keystone_data.sh
     for DBNAME in nova nova_api cinder keystone glance horizon heat neutron \
-                       manila magnum barbican sahara ; do
+                       manila magnum barbican sahara designate ; do
         # use ALTER if CREATE fails: the role probably already exists
         # in that case
         sudo -u postgres psql -c "CREATE ROLE $DBNAME PASSWORD '$mpw' LOGIN;" || \
@@ -252,6 +259,10 @@ if [ "x$with_sahara" = "xyes" ]; then
     setup_keystone_authtoken /etc/sahara/sahara.conf sahara
 fi
 
+if [ "x$with_designate" = "xyes" ]; then
+    setup_keystone_authtoken /etc/designate/designate.conf designate
+fi
+
 #-----------------------------------------
 ## setup glance configuration
 #-----------------------------------------
@@ -319,6 +330,10 @@ fi
 if [ "x$with_sahara" = "xyes" ]; then
     service_list+=" sahara"
 fi
+if [ "x$with_designate" = "xyes" ]; then
+    service_list+=" designate"
+fi
+
 for m in $service_list; do
     sed -i -e 's/%SERVICE_TENANT_NAME%/service/' \
            -e "s/%SERVICE_PASSWORD%/$ADMIN_PASSWORD/" \
@@ -417,6 +432,9 @@ if [ "x$with_barbican" = "xyes" ]; then
 fi
 if [ "x$with_sahara" = "xyes" ]; then
     ENABLED_SERVICES+=",sahara-api,sahara-engine"
+fi
+if [ "x$with_designate" = "xyes" ]; then
+    ENABLED_SERVICES+=",designate-api,designate-central"
 fi
 
 SERVICE_ENDPOINT=$KEYSTONE_AUTH_PROTOCOL://$KEYSTONE_AUTH_HOST:$KEYSTONE_AUTH_PORT
@@ -739,6 +757,19 @@ if [ "x$with_sahara" = "xyes" ]; then
     #TODO(toabctl): configure and start services
     #start_and_enable_service openstack-sahara-api
     #start_and_enable_service openstack-sahara-engine
+fi
+
+#-----------------------------------------
+# setup OpenStack Designate
+#-----------------------------------------
+if [ "x$with_designate" = "xyes" ]; then
+    c="/etc/designate/designate.conf"
+    setup_messaging_client $c $IP $pw
+
+    crudini --set $c database connection "$DB://designate:${mpw}@${IP}/designate"
+
+    #TODO(toabctl): configure and start services
+    #start_and_enable_service openstack-designate-api
 fi
 
 

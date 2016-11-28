@@ -413,3 +413,19 @@ if [[ "$ENABLED_SERVICES" =~ "sahara-api" ]]; then
         "$SAHARA_SERVICE_PROTOCOL://$SAHARA_SERVICE_HOST:$SAHARA_SERVICE_PORT/v1.1/\$(project_id)s" \
         "$SAHARA_SERVICE_PROTOCOL://$SAHARA_SERVICE_HOST:$SAHARA_SERVICE_PORT/v1.1/\$(project_id)s"
 fi
+
+# designate
+if [[ "$ENABLED_SERVICES" =~ "designate-api" ]]; then
+    DESIGNATE_SERVICE_PROTOCOL=http
+    DESIGNATE_SERVICE_HOST=$SERVICE_HOST
+    DESIGNATE_SERVICE_PORT=9001
+
+    create_service_user "designate" "admin"
+
+    get_or_create_service "designate" "dns" "Designate DNS Service"
+    get_or_create_endpoint "dns" \
+                           "RegionOne" \
+                           "$DESIGNATE_SERVICE_PROTOCOL://$DESIGNATE_SERVICE_HOST:$DESIGNATE_SERVICE_PORT/" \
+                           "$DESIGNATE_SERVICE_PROTOCOL://$DESIGNATE_SERVICE_HOST:$DESIGNATE_SERVICE_PORT/" \
+                           "$DESIGNATE_SERVICE_PROTOCOL://$DESIGNATE_SERVICE_HOST:$DESIGNATE_SERVICE_PORT/"
+fi

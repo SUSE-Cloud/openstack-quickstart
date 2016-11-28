@@ -38,6 +38,9 @@ with_magnum=no
 # Setup Sahara
 with_sahara=no
 
+# Setup designate
+with_designate=no
+
 # Setup Tempest ?
 with_tempest=no
 
