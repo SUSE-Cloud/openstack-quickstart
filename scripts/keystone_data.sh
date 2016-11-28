@@ -397,3 +397,19 @@ if [[ "$ENABLED_SERVICES" =~ "barbican-api" ]]; then
         "$BARBICAN_SERVICE_PROTOCOL://$BARBICAN_SERVICE_HOST:$BARBICAN_SERVICE_PORT" \
         "$BARBICAN_SERVICE_PROTOCOL://$BARBICAN_SERVICE_HOST:$BARBICAN_SERVICE_PORT"
 fi
+
+# Sahara
+if [[ "$ENABLED_SERVICES" =~ "sahara-api" ]]; then
+    SAHARA_SERVICE_PROTOCOL=http
+    SAHARA_SERVICE_HOST=$SERVICE_HOST
+    SAHARA_SERVICE_PORT=8386
+
+    create_service_user "sahara" "admin"
+
+    get_or_create_service "sahara" "data-processing" "Sahara Data Processing"
+    get_or_create_endpoint "data-processing" \
+        "RegionOne" \
+        "$SAHARA_SERVICE_PROTOCOL://$SAHARA_SERVICE_HOST:$SAHARA_SERVICE_PORT/v1.1/\$(project_id)s" \
+        "$SAHARA_SERVICE_PROTOCOL://$SAHARA_SERVICE_HOST:$SAHARA_SERVICE_PORT/v1.1/\$(project_id)s" \
+        "$SAHARA_SERVICE_PROTOCOL://$SAHARA_SERVICE_HOST:$SAHARA_SERVICE_PORT/v1.1/\$(project_id)s"
+fi
