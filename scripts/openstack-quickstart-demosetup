@@ -50,6 +50,13 @@ if [ "x$with_barbican" = "xyes" ]; then
 		     python-barbican python-barbicanclient
 fi
 
+if [ "x$with_sahara" = "xyes" ]; then
+    install_packages openstack-sahara openstack-sahara-api\
+		     openstack-sahara-engine \
+		     python-saharaclient
+fi
+
+
 if [ "$DB" = "postgresql" ] ; then
     if grep -q "SUSE Linux Enterprise Server 11" /etc/SuSE-release; then
         install_packages postgresql91-server python-psycopg2
@@ -94,7 +101,7 @@ if [ "$DB" = "postgresql" ] ; then
     fi
 else
     echo | mysql -u root || pwquery=-p
-    for DBNAME in nova cinder keystone glance horizon neutron manila barbican ; do
+    for DBNAME in nova cinder keystone glance horizon neutron manila barbican sahara ; do
         echo "
         set global character_set_server=latin1;
         set session character_set_server=latin1;
@@ -119,7 +126,7 @@ start_and_enable_service iscsid
 if [ "$DB" = "postgresql" ] ; then
     sudo -u postgres dropdb keystone || true # needed for keystone_data.sh
     for DBNAME in nova nova_api cinder keystone glance horizon heat neutron \
-                       manila magnum barbican ; do
+                       manila magnum barbican sahara ; do
         # use ALTER if CREATE fails: the role probably already exists
         # in that case
         sudo -u postgres psql -c "CREATE ROLE $DBNAME PASSWORD '$mpw' LOGIN;" || \
@@ -241,6 +248,10 @@ if [ "x$with_barbican" = "xyes" ]; then
     crudini --set /etc/barbican/barbican.conf keystone_authtoken auth_version 'v3.0'
 fi
 
+if [ "x$with_sahara" = "xyes" ]; then
+    setup_keystone_authtoken /etc/sahara/sahara.conf sahara
+fi
+
 #-----------------------------------------
 ## setup glance configuration
 #-----------------------------------------
@@ -304,6 +315,9 @@ if [ "x$with_magnum" = "xyes" ]; then
 fi
 if [ "x$with_barbican" = "xyes" ]; then
     service_list+=" barbican"
+fi
+if [ "x$with_sahara" = "xyes" ]; then
+    service_list+=" sahara"
 fi
 for m in $service_list; do
     sed -i --follow-symlinks -e 's/%SERVICE_TENANT_NAME%/service/' \
@@ -401,7 +415,9 @@ fi
 if [ "x$with_barbican" = "xyes" ]; then
     ENABLED_SERVICES+=",barbican-api,barbican-retry,barbican-keystone-listener,barbican-worker"
 fi
-
+if [ "x$with_sahara" = "xyes" ]; then
+    ENABLED_SERVICES+=",sahara-api,sahara-engine"
+fi
 
 SERVICE_ENDPOINT=$KEYSTONE_AUTH_PROTOCOL://$KEYSTONE_AUTH_HOST:$KEYSTONE_AUTH_PORT
 
@@ -709,6 +725,20 @@ if [ "x$with_barbican" = "xyes" ]; then
     start_and_enable_service openstack-barbican-keystone-listener
     start_and_enable_service openstack-barbican-retry
     start_and_enable_service openstack-barbican-worker
+fi
+
+#-----------------------------------------
+# setup OpenStack Sahara
+#-----------------------------------------
+if [ "x$with_sahara" = "xyes" ]; then
+    c="/etc/sahara/sahara.conf"
+    setup_messaging_client $c $IP $pw
+
+    crudini --set $c database connection "$DB://sahara:${mpw}@${IP}/sahara"
+
+    #TODO(toabctl): configure and start services
+    #start_and_enable_service openstack-sahara-api
+    #start_and_enable_service openstack-sahara-engine
 fi
 
 

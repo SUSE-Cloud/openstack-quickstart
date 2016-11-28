@@ -35,6 +35,9 @@ with_manila=yes
 # Setup Magnum
 with_magnum=no
 
+# Setup Sahara
+with_sahara=no
+
 # Setup Tempest ?
 with_tempest=no
 
