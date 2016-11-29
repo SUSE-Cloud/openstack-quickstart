@@ -696,8 +696,8 @@ if [ "x$with_manila" = "xyes" ]; then
     start_and_enable_service openstack-manila-scheduler
     start_and_enable_service openstack-manila-share
     start_and_enable_service openstack-manila-data
-
-    manila type-create default false
+    # retry a bit until manila-api is ready
+    for i in {1..5}; do manila type-create default false && break || sleep 1; done
 fi
 
 #-----------------------------------------
