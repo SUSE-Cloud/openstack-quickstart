@@ -50,6 +50,26 @@ if [ "x$with_barbican" = "xyes" ]; then
 		     python-barbican python-barbicanclient
 fi
 
+if [ "x$with_sahara" = "xyes" ]; then
+    install_packages openstack-sahara openstack-sahara-api\
+		     openstack-sahara-engine \
+		     python-saharaclient
+fi
+
+if [ "x$with_designate" = "xyes" ]; then
+    install_packages openstack-designate openstack-designate-api\
+                     openstack-designate-central openstack-designate-producer \
+                     openstack-designate-sink openstack-designate-worker \
+                     python-designateclient
+fi
+
+if [ "x$with_gnocchi" = "xyes" ]; then
+    install_packages openstack-gnocchi openstack-gnocchi-api \
+                     openstack-gnocchi-metricd openstack-gnocchi-statsd \
+                     python-gnocchiclient
+fi
+
+
 if [ "$DB" = "postgresql" ] ; then
     if grep -q "SUSE Linux Enterprise Server 11" /etc/SuSE-release; then
         install_packages postgresql91-server python-psycopg2
@@ -94,7 +114,7 @@ if [ "$DB" = "postgresql" ] ; then
     fi
 else
     echo | mysql -u root || pwquery=-p
-    for DBNAME in nova cinder keystone glance horizon neutron manila barbican ; do
+    for DBNAME in nova cinder keystone glance horizon neutron manila barbican sahara designate gnocchi; do
         echo "
         set global character_set_server=latin1;
         set session character_set_server=latin1;
@@ -119,7 +139,7 @@ start_and_enable_service iscsid
 if [ "$DB" = "postgresql" ] ; then
     sudo -u postgres dropdb keystone || true # needed for keystone_data.sh
     for DBNAME in nova nova_api cinder keystone glance horizon heat neutron \
-                       manila magnum barbican ; do
+                       manila magnum barbican sahara designate gnocchi ; do
         # use ALTER if CREATE fails: the role probably already exists
         # in that case
         sudo -u postgres psql -c "CREATE ROLE $DBNAME PASSWORD '$mpw' LOGIN;" || \
@@ -241,6 +261,18 @@ if [ "x$with_barbican" = "xyes" ]; then
     crudini --set /etc/barbican/barbican.conf keystone_authtoken auth_version 'v3.0'
 fi
 
+if [ "x$with_sahara" = "xyes" ]; then
+    setup_keystone_authtoken /etc/sahara/sahara.conf sahara
+fi
+
+if [ "x$with_designate" = "xyes" ]; then
+    setup_keystone_authtoken /etc/designate/designate.conf designate
+fi
+
+if [ "x$with_gnocchi" = "xyes" ]; then
+    setup_keystone_authtoken /etc/gnocchi/gnocchi.conf gnocchi
+fi
+
 #-----------------------------------------
 ## setup glance configuration
 #-----------------------------------------
@@ -305,6 +337,16 @@ fi
 if [ "x$with_barbican" = "xyes" ]; then
     service_list+=" barbican"
 fi
+if [ "x$with_sahara" = "xyes" ]; then
+    service_list+=" sahara"
+fi
+if [ "x$with_designate" = "xyes" ]; then
+    service_list+=" designate"
+fi
+if [ "x$with_gnocchi" = "xyes" ]; then
+    service_list+=" gnocchi"
+fi
+
 for m in $service_list; do
     sed -i -e 's/%SERVICE_TENANT_NAME%/service/' \
            -e "s/%SERVICE_PASSWORD%/$ADMIN_PASSWORD/" \
@@ -401,7 +443,15 @@ fi
 if [ "x$with_barbican" = "xyes" ]; then
     ENABLED_SERVICES+=",barbican-api,barbican-retry,barbican-keystone-listener,barbican-worker"
 fi
-
+if [ "x$with_sahara" = "xyes" ]; then
+    ENABLED_SERVICES+=",sahara-api,sahara-engine"
+fi
+if [ "x$with_designate" = "xyes" ]; then
+    ENABLED_SERVICES+=",designate-api,designate-central"
+fi
+if [ "x$with_gnocchi" = "xyes" ]; then
+    ENABLED_SERVICES+=",gnocchi-api,gnocchi-statsd,gnocchi-metricd"
+fi
 
 SERVICE_ENDPOINT=$KEYSTONE_AUTH_PROTOCOL://$KEYSTONE_AUTH_HOST:$KEYSTONE_AUTH_PORT
 
@@ -441,7 +491,7 @@ crudini --set /etc/neutron/l3_agent.ini DEFAULT use_namespaces true
 crudini --set /etc/neutron/metadata_agent.ini DEFAULT metadata_proxy_shared_secret $metadata_secret
 
 if [ "x$with_tempest" = "xyes" ]; then
-    crudini --set /etc/neutron/neutron.conf DEFAULT service_plugins "neutron_lbaas.services.loadbalancer.plugin.LoadBalancerPluginv2, neutron.services.l3_router.l3_router_plugin.L3RouterPlugin, neutron.services.vpn.plugin.VPNDriverPlugin, neutron.services.metering.metering_plugin.MeteringPlugin, neutron.services.firewall.fwaas_plugin.FirewallPlugin"
+    crudini --set /etc/neutron/neutron.conf DEFAULT service_plugins "neutron_lbaas.services.loadbalancer.plugin.LoadBalancerPluginv2, neutron.services.l3_router.l3_router_plugin.L3RouterPlugin, neutron.services.vpn.plugin.VPNDriverPlugin, neutron.services.metering.metering_plugin.MeteringPlugin"
     # configure Neutron Lbaas v2 service
     crudini --set /etc/neutron/neutron_lbaas.conf service_providers service_provider "LOADBALANCERV2:Haproxy:neutron_lbaas.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default"
     crudini --set /etc/neutron/lbaas_agent.ini DEFAULT interface_driver neutron.agent.linux.interface.BridgeInterfaceDriver
@@ -646,8 +696,8 @@ if [ "x$with_manila" = "xyes" ]; then
     start_and_enable_service openstack-manila-scheduler
     start_and_enable_service openstack-manila-share
     start_and_enable_service openstack-manila-data
-
-    manila type-create default false
+    # retry a bit until manila-api is ready
+    for i in {1..5}; do manila type-create default false && break || sleep 1; done
 fi
 
 #-----------------------------------------
@@ -709,6 +759,46 @@ if [ "x$with_barbican" = "xyes" ]; then
     start_and_enable_service openstack-barbican-keystone-listener
     start_and_enable_service openstack-barbican-retry
     start_and_enable_service openstack-barbican-worker
+fi
+
+#-----------------------------------------
+# setup OpenStack Sahara
+#-----------------------------------------
+if [ "x$with_sahara" = "xyes" ]; then
+    c="/etc/sahara/sahara.conf"
+    setup_messaging_client $c $IP $pw
+
+    crudini --set $c database connection "$DB://sahara:${mpw}@${IP}/sahara"
+
+    #TODO(toabctl): configure and start services
+    #start_and_enable_service openstack-sahara-api
+    #start_and_enable_service openstack-sahara-engine
+fi
+
+#-----------------------------------------
+# setup OpenStack Designate
+#-----------------------------------------
+if [ "x$with_designate" = "xyes" ]; then
+    c="/etc/designate/designate.conf"
+    setup_messaging_client $c $IP $pw
+
+    crudini --set $c database connection "$DB://designate:${mpw}@${IP}/designate"
+
+    #TODO(toabctl): configure and start services
+    #start_and_enable_service openstack-designate-api
+fi
+
+#-----------------------------------------
+# setup OpenStack Gnocchi
+#-----------------------------------------
+if [ "x$with_gnocchi" = "xyes" ]; then
+    c="/etc/gnocchi/gnocchi.conf"
+    setup_messaging_client $c $IP $pw
+
+    crudini --set $c database connection "$DB://gnocchi:${mpw}@${IP}/gnocchi"
+
+    #TODO(toabctl): configure and start services
+    #start_and_enable_service openstack-gnocchi-statsd
 fi
 
 

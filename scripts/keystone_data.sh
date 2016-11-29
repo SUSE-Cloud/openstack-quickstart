@@ -397,3 +397,51 @@ if [[ "$ENABLED_SERVICES" =~ "barbican-api" ]]; then
         "$BARBICAN_SERVICE_PROTOCOL://$BARBICAN_SERVICE_HOST:$BARBICAN_SERVICE_PORT" \
         "$BARBICAN_SERVICE_PROTOCOL://$BARBICAN_SERVICE_HOST:$BARBICAN_SERVICE_PORT"
 fi
+
+# Sahara
+if [[ "$ENABLED_SERVICES" =~ "sahara-api" ]]; then
+    SAHARA_SERVICE_PROTOCOL=http
+    SAHARA_SERVICE_HOST=$SERVICE_HOST
+    SAHARA_SERVICE_PORT=8386
+
+    create_service_user "sahara" "admin"
+
+    get_or_create_service "sahara" "data-processing" "Sahara Data Processing"
+    get_or_create_endpoint "data-processing" \
+        "RegionOne" \
+        "$SAHARA_SERVICE_PROTOCOL://$SAHARA_SERVICE_HOST:$SAHARA_SERVICE_PORT/v1.1/\$(project_id)s" \
+        "$SAHARA_SERVICE_PROTOCOL://$SAHARA_SERVICE_HOST:$SAHARA_SERVICE_PORT/v1.1/\$(project_id)s" \
+        "$SAHARA_SERVICE_PROTOCOL://$SAHARA_SERVICE_HOST:$SAHARA_SERVICE_PORT/v1.1/\$(project_id)s"
+fi
+
+# designate
+if [[ "$ENABLED_SERVICES" =~ "designate-api" ]]; then
+    DESIGNATE_SERVICE_PROTOCOL=http
+    DESIGNATE_SERVICE_HOST=$SERVICE_HOST
+    DESIGNATE_SERVICE_PORT=9001
+
+    create_service_user "designate" "admin"
+
+    get_or_create_service "designate" "dns" "Designate DNS Service"
+    get_or_create_endpoint "dns" \
+                           "RegionOne" \
+                           "$DESIGNATE_SERVICE_PROTOCOL://$DESIGNATE_SERVICE_HOST:$DESIGNATE_SERVICE_PORT/" \
+                           "$DESIGNATE_SERVICE_PROTOCOL://$DESIGNATE_SERVICE_HOST:$DESIGNATE_SERVICE_PORT/" \
+                           "$DESIGNATE_SERVICE_PROTOCOL://$DESIGNATE_SERVICE_HOST:$DESIGNATE_SERVICE_PORT/"
+fi
+
+# gnocchi
+if [[ "$ENABLED_SERVICES" =~ "gnocchi-api" ]]; then
+    GNOCCHI_SERVICE_PROTOCOL=http
+    GNOCCHI_SERVICE_PORT=8041
+    GNOCCHI_SERVICE_HOST=$SERVICE_HOST
+
+    create_service_user "gnocchi" "admin"
+
+    get_or_create_service "gnocchi" "metric" "OpenStack Metric Service"
+    get_or_create_endpoint "metric" \
+                           "RegionOne" \
+                           "$GNOCCHI_SERVICE_PROTOCOL://$GNOCCHI_SERVICE_HOST:$GNOCCHI_SERVICE_PORT" \
+                           "$GNOCCHI_SERVICE_PROTOCOL://$GNOCCHI_SERVICE_HOST:$GNOCCHI_SERVICE_PORT" \
+                           "$GNOCCHI_SERVICE_PROTOCOL://$GNOCCHI_SERVICE_HOST:$GNOCCHI_SERVICE_PORT"
+fi
