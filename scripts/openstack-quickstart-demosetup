@@ -320,6 +320,14 @@ crudini --set /etc/cinder/cinder.conf DEFAULT my_ip "$IP"
 crudini --set /etc/cinder/cinder.conf DEFAULT osapi_volume_workers "1"
 crudini --set /etc/cinder/cinder.conf database connection "$DB://cinder:${mpw}@${IP}/cinder"
 crudini --set /etc/cinder/cinder.conf keymgr fixed_key "$FIXED_KEY"
+# configure a cinder backend (LVM)
+cinder_backend_name="backend-1"
+crudini --set /etc/cinder/cinder.conf DEFAULT enabled_backends $cinder_backend_name
+crudini --set /etc/cinder/cinder.conf $cinder_backend_name volume_driver "cinder.volume.drivers.lvm.LVMVolumeDriver"
+crudini --set /etc/cinder/cinder.conf $cinder_backend_name volume_group "cinder-volumes"
+crudini --set /etc/cinder/cinder.conf $cinder_backend_name lvm_type "thin"
+crudini --set /etc/cinder/cinder.conf $cinder_backend_name iscsi_protocol "iscsi"
+
 
 if [ "x$with_tempest" = "xyes" ]; then
     crudini --set /etc/cinder/cinder.conf DEFAULT volume_clear none
