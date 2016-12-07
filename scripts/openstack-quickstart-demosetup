@@ -480,6 +480,10 @@ fi
 ## setup neutron configuration
 #-----------------------------------------
 
+# enable ml2 config in neutron-server
+mkdir -p /etc/neutron/neutron-server.conf.d/
+ln -s /etc/neutron/plugins/ml2/ml2_conf.ini /etc/neutron/neutron-server.conf.d/100-ml2_conf.ini.conf
+
 SERVICE_TENANT_ID=`get_service_tenant_id`
 c=/etc/neutron/neutron.conf
 crudini --set $c database connection $DB://neutron:$mpw@$IP/neutron
