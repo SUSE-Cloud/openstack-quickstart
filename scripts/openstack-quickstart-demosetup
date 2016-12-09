@@ -356,9 +356,9 @@ if [ "x$with_gnocchi" = "xyes" ]; then
 fi
 
 for m in $service_list; do
-    sed -i -e 's/%SERVICE_TENANT_NAME%/service/' \
-           -e "s/%SERVICE_PASSWORD%/$ADMIN_PASSWORD/" \
-               /etc/$m/*.ini /etc/$m/$m*.conf
+    sed -i --follow-symlinks -e 's/%SERVICE_TENANT_NAME%/service/' \
+        -e "s/%SERVICE_PASSWORD%/$ADMIN_PASSWORD/" \
+        /etc/$m/*.ini /etc/$m/$m*.conf
 done
 
 
