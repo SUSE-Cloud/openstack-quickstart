@@ -158,14 +158,14 @@ function setup_node_for_nova_compute() {
 }
 
 function setup_nova_compute() {
-
-    crudini --set /etc/nova/nova.conf DEFAULT linuxnet_interface_driver ""
-    crudini --set /etc/nova/nova.conf DEFAULT firewall_driver nova.virt.firewall.NoopFirewallDriver
-    crudini --set /etc/nova/nova.conf DEFAULT allow_resize_to_same_host True
+    local c=/etc/nova/nova.conf.d/100-nova.conf
+    crudini --set $c DEFAULT linuxnet_interface_driver ""
+    crudini --set $c DEFAULT firewall_driver nova.virt.firewall.NoopFirewallDriver
+    crudini --set $c DEFAULT allow_resize_to_same_host True
 
     if grep -q vmx /proc/cpuinfo; then
-        crudini --set /etc/nova/nova.conf libvirt cpu_mode custom
-        crudini --set /etc/nova/nova.conf libvirt cpu_model "SandyBridge"
+        crudini --set $c libvirt cpu_mode custom
+        crudini --set $c libvirt cpu_model "SandyBridge"
     fi
 }
 
@@ -208,12 +208,12 @@ function setup_messaging_client() {
 function setup_keystone_authtoken() {
     local conf=$1
     local admin_user=$2
-    local section=${3:-keystone_authtoken}
-    [ -e "$conf" ] || return 0
+    local admin_password=$3
+    local section=${4:-keystone_authtoken}
 
     crudini --set $conf $section auth_type password
     crudini --set $conf $section username $admin_user
-    crudini --set $conf $section password '%SERVICE_PASSWORD%'
+    crudini --set $conf $section password $admin_password
     crudini --set $conf $section user_domain_id default
     crudini --set $conf $section project_name service
     crudini --set $conf $section project_domain_id default
