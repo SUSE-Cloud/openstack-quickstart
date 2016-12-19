@@ -35,6 +35,15 @@ with_manila=yes
 # Setup Magnum
 with_magnum=no
 
+# Setup Sahara
+with_sahara=no
+
+# Setup designate
+with_designate=no
+
+# Setup Gnocchi
+with_gnocchi=no
+
 # Setup Tempest ?
 with_tempest=no
 

@@ -50,6 +50,26 @@ if [ "x$with_barbican" = "xyes" ]; then
 		     python-barbican python-barbicanclient
 fi
 
+if [ "x$with_sahara" = "xyes" ]; then
+    install_packages openstack-sahara openstack-sahara-api\
+		     openstack-sahara-engine \
+		     python-saharaclient
+fi
+
+if [ "x$with_designate" = "xyes" ]; then
+    install_packages openstack-designate openstack-designate-api\
+                     openstack-designate-central openstack-designate-producer \
+                     openstack-designate-sink openstack-designate-worker \
+                     python-designateclient
+fi
+
+if [ "x$with_gnocchi" = "xyes" ]; then
+    install_packages openstack-gnocchi openstack-gnocchi-api \
+                     openstack-gnocchi-metricd openstack-gnocchi-statsd \
+                     python-gnocchiclient
+fi
+
+
 if [ "$DB" = "postgresql" ] ; then
     if grep -q "SUSE Linux Enterprise Server 11" /etc/SuSE-release; then
         install_packages postgresql91-server python-psycopg2
@@ -94,7 +114,7 @@ if [ "$DB" = "postgresql" ] ; then
     fi
 else
     echo | mysql -u root || pwquery=-p
-    for DBNAME in nova cinder keystone glance horizon neutron manila barbican ; do
+    for DBNAME in nova cinder keystone glance horizon neutron manila barbican sahara designate gnocchi; do
         echo "
         set global character_set_server=latin1;
         set session character_set_server=latin1;
@@ -119,7 +139,7 @@ start_and_enable_service iscsid
 if [ "$DB" = "postgresql" ] ; then
     sudo -u postgres dropdb keystone || true # needed for keystone_data.sh
     for DBNAME in nova nova_api cinder keystone glance horizon heat neutron \
-                       manila magnum barbican ; do
+                       manila magnum barbican sahara designate gnocchi ; do
         # use ALTER if CREATE fails: the role probably already exists
         # in that case
         sudo -u postgres psql -c "CREATE ROLE $DBNAME PASSWORD '$mpw' LOGIN;" || \
@@ -215,108 +235,125 @@ fi
 # setup keystone client endpoint configuration
 #-----------------------------------------
 
-setup_keystone_authtoken /etc/glance/glance-api.conf glance
-setup_keystone_authtoken /etc/glance/glance-registry.conf glance
-setup_keystone_authtoken /etc/neutron/neutron.conf neutron
-setup_keystone_authtoken /etc/neutron/neutron.conf nova nova
-setup_keystone_authtoken /etc/cinder/cinder.conf cinder
-setup_keystone_authtoken /etc/heat/heat.conf heat
-setup_keystone_authtoken /etc/nova/nova.conf nova
-setup_keystone_authtoken /etc/nova/nova.conf neutron neutron
+setup_keystone_authtoken /etc/glance/glance-api.conf.d/100-api.conf glance $ADMIN_PASSWORD
+setup_keystone_authtoken /etc/glance/glance-registry.conf.d/100-registry.conf glance $ADMIN_PASSWORD
+setup_keystone_authtoken /etc/neutron/neutron.conf.d/100-neutron.conf neutron $ADMIN_PASSWORD
+setup_keystone_authtoken /etc/neutron/neutron.conf.d/100-neutron.conf nova $ADMIN_PASSWORD nova
+setup_keystone_authtoken /etc/cinder/cinder.conf.d/100-cinder.conf cinder $ADMIN_PASSWORD
+setup_keystone_authtoken /etc/heat/heat.conf.d/100-heat.conf heat $ADMIN_PASSWORD
+setup_keystone_authtoken /etc/heat/heat.conf.d/100-heat.conf heat $ADMIN_PASSWORD trustee
+setup_keystone_authtoken /etc/nova/nova.conf.d/100-nova.conf nova $ADMIN_PASSWORD
+setup_keystone_authtoken /etc/nova/nova.conf.d/100-nova.conf neutron $ADMIN_PASSWORD neutron
 
 if [ "x$with_manila" = "xyes" ]; then
-    setup_keystone_authtoken /etc/manila/manila.conf manila
-    setup_keystone_authtoken /etc/manila/manila.conf neutron neutron
-    setup_keystone_authtoken /etc/manila/manila.conf nova nova
-    setup_keystone_authtoken /etc/manila/manila.conf cinder cinder
+    setup_keystone_authtoken /etc/manila/manila.conf.d/100-manila.conf manila $ADMIN_PASSWORD
+    setup_keystone_authtoken /etc/manila/manila.conf.d/100-manila.conf neutron $ADMIN_PASSWORD neutron
+    setup_keystone_authtoken /etc/manila/manila.conf.d/100-manila.conf nova $ADMIN_PASSWORD nova
+    setup_keystone_authtoken /etc/manila/manila.conf.d/100-manila.conf cinder $ADMIN_PASSWORD cinder
 fi
 
 if [ "x$with_magnum" = "xyes" ]; then
-    setup_keystone_authtoken /etc/magnum/magnum.conf magnum
-    setup_keystone_authtoken /etc/magnum/magnum.conf magnum keystone_auth
+    setup_keystone_authtoken /etc/magnum/magnum.conf.d/100-magnum.conf magnum $ADMIN_PASSWORD
+    setup_keystone_authtoken /etc/magnum/magnum.conf.d/100-magnum.conf magnum $ADMIN_PASSWORD keystone_auth
 fi
 
 if [ "x$with_barbican" = "xyes" ]; then
-    setup_keystone_authtoken /etc/barbican/barbican.conf barbican
-    crudini --set /etc/barbican/barbican.conf keystone_authtoken auth_version 'v3.0'
+    setup_keystone_authtoken /etc/barbican/barbican.conf.d/100-barbican.conf barbican $ADMIN_PASSWORD
+    crudini --set /etc/barbican/barbican.conf.d/100-barbican.conf keystone_authtoken auth_version 'v3.0'
+fi
+
+if [ "x$with_sahara" = "xyes" ]; then
+    setup_keystone_authtoken /etc/sahara/sahara.conf.d/100-sahara.conf sahara $ADMIN_PASSWORD
+fi
+
+if [ "x$with_designate" = "xyes" ]; then
+    setup_keystone_authtoken /etc/designate/designate.conf.d/100-designate.conf designate $ADMIN_PASSWORD
+fi
+
+if [ "x$with_gnocchi" = "xyes" ]; then
+    setup_keystone_authtoken /etc/gnocchi/gnocchi.conf.d/100-gnocchi.conf gnocchi $ADMIN_PASSWORD
 fi
 
 #-----------------------------------------
 ## setup glance configuration
 #-----------------------------------------
+c_api=/etc/glance/glance-api.conf.d/100-api.conf
+crudini --set $c_api DEFAULT workers "1"
+crudini --set $c_api database connection "$DB://glance:$mpw@$IP/glance"
+crudini --set $c_api glance_store filesystem_store_datadir /var/lib/glance/images/
 
-crudini --set /etc/glance/glance-api.conf DEFAULT workers "1"
-crudini --set /etc/glance/glance-api.conf database connection "$DB://nova:$mpw@$IP/glance"
-crudini --set /etc/glance/glance-registry.conf DEFAULT workers "1"
-crudini --set /etc/glance/glance-registry.conf database connection "$DB://nova:$mpw@$IP/glance"
+c_reg=/etc/glance/glance-registry.conf.d/100-registry.conf
+crudini --set $c_reg DEFAULT workers "1"
+crudini --set $c_reg database connection "$DB://glance:$mpw@$IP/glance"
 
 #-----------------------------------------
 ## setup nova configuration
 #-----------------------------------------
-
 FIXED_KEY=""
 for i in $(seq 1 64); do
     FIXED_KEY+=$(printf "%x\n" $(($RANDOM % 16)))
 done
 
-crudini --set /etc/nova/nova.conf database connection "$DB://nova:$mpw@$IP/nova"
-crudini --set /etc/nova/nova.conf api_database connection "$DB://nova_api:$mpw@$IP/nova_api"
-crudini --set /etc/nova/nova.conf glance host $IP
-crudini --set /etc/nova/nova.conf glance api_servers "http://$IP:9292"
-crudini --set /etc/nova/nova.conf DEFAULT novncproxy_base_url "http://$IP:6080/vnc_auto.html"
-crudini --set /etc/nova/nova.conf DEFAULT default_floating_pool ext
-crudini --set /etc/nova/nova.conf DEFAULT my_ip "$IP"
-crudini --set /etc/nova/nova.conf DEFAULT osapi_compute_workers "1"
-crudini --set /etc/nova/nova.conf DEFAULT ec2_workers "1"
-crudini --set /etc/nova/nova.conf DEFAULT metadata_workers "1"
-crudini --set /etc/nova/nova.conf conductor workers "1"
+c=/etc/nova/nova.conf.d/100-nova.conf
+crudini --set $c database connection "$DB://nova:$mpw@$IP/nova"
+crudini --set $c api_database connection "$DB://nova_api:$mpw@$IP/nova_api"
+crudini --set $c glance host $IP
+crudini --set $c glance api_servers "http://$IP:9292"
+crudini --set $c DEFAULT connection_type libvirt
+crudini --set $c DEFAULT compute_driver libvirt.LibvirtDriver
+crudini --set $c DEFAULT service_neutron_metadata_proxy True
+crudini --set $c DEFAULT use_neutron True
+crudini --set $c DEFAULT novncproxy_base_url "http://$IP:6080/vnc_auto.html"
+crudini --set $c DEFAULT default_floating_pool ext
+crudini --set $c DEFAULT my_ip "$IP"
+crudini --set $c DEFAULT osapi_compute_workers "1"
+crudini --set $c DEFAULT ec2_workers "1"
+crudini --set $c DEFAULT metadata_workers "1"
+crudini --set $c conductor workers "1"
 
 metadata_secret=$(echo $ADMIN_PASSWORD | md5sum | cut -d" " -f1)
-crudini --set /etc/nova/nova.conf neutron service_metadata_proxy True
-crudini --set /etc/nova/nova.conf neutron metadata_proxy_shared_secret $metadata_secret
-crudini --set /etc/nova/nova.conf keymgr fixed_key "$FIXED_KEY"
+crudini --set $c neutron service_metadata_proxy True
+crudini --set $c neutron metadata_proxy_shared_secret $metadata_secret
+crudini --set $c keymgr fixed_key "$FIXED_KEY"
 
 setup_nova_compute
 
 extensions_path=$(ls -d /usr/lib*/python*/site-packages/extensions 2> /dev/null | head -n 1)
 if [ -n "$extensions_path" ]; then
-    crudini --set /etc/nova/nova.conf DEFAULT osapi_extensions_path "$extensions_path"
+    crudini --set $c DEFAULT osapi_extensions_path "$extensions_path"
 fi
 
-# configure cinder
-crudini --set /etc/cinder/cinder.conf DEFAULT my_ip "$IP"
-crudini --set /etc/cinder/cinder.conf DEFAULT osapi_volume_workers "1"
-crudini --set /etc/cinder/cinder.conf database connection "$DB://cinder:${mpw}@${IP}/cinder"
-crudini --set /etc/cinder/cinder.conf keymgr fixed_key "$FIXED_KEY"
+#-----------------------------------------
+## setup cinder configuration
+#-----------------------------------------
+c=/etc/cinder/cinder.conf.d/100-cinder.conf
+crudini --set $c DEFAULT my_ip "$IP"
+crudini --set $c DEFAULT osapi_volume_workers "1"
+crudini --set $c database connection "$DB://cinder:${mpw}@${IP}/cinder"
+crudini --set $c keymgr fixed_key "$FIXED_KEY"
+# configure a cinder backend (LVM)
+cinder_backend_name="backend-1"
+crudini --set $c DEFAULT enabled_backends $cinder_backend_name
+crudini --set $c $cinder_backend_name volume_driver "cinder.volume.drivers.lvm.LVMVolumeDriver"
+crudini --set $c $cinder_backend_name volume_group "cinder-volumes"
+crudini --set $c $cinder_backend_name lvm_type "thin"
+crudini --set $c $cinder_backend_name iscsi_protocol "iscsi"
+
 
 if [ "x$with_tempest" = "xyes" ]; then
-    crudini --set /etc/cinder/cinder.conf DEFAULT volume_clear none
-    crudini --set /etc/cinder/cinder.conf DEFAULT lvm_type thin
+    crudini --set $c DEFAULT volume_clear none
+    crudini --set $c DEFAULT lvm_type thin
 fi
 
 
-service_list="cinder heat nova glance neutron"
-if [ "x$with_manila" = "xyes" ]; then
-    service_list+=" manila"
-fi
-if [ "x$with_magnum" = "xyes" ]; then
-    service_list+=" magnum"
-fi
-if [ "x$with_barbican" = "xyes" ]; then
-    service_list+=" barbican"
-fi
-for m in $service_list; do
-    sed -i --follow-symlinks -e 's/%SERVICE_TENANT_NAME%/service/' \
-        -e "s/%SERVICE_PASSWORD%/$ADMIN_PASSWORD/" \
-        /etc/$m/*.ini /etc/$m/$m*.conf
-done
-
-
-# configure keystone
-crudini --set /etc/keystone/keystone.conf database connection $DB://keystone:$mpw@$IP/keystone
-crudini --set /etc/keystone/keystone.conf DEFAULT admin_token "$SERVICE_TOKEN"
-crudini --set /etc/keystone/keystone.conf DEFAULT public_workers 2
-crudini --set /etc/keystone/keystone.conf DEFAULT admin_workers 2
+#-----------------------------------------
+## setup keystone configuration
+#-----------------------------------------
+c=/etc/keystone/keystone.conf.d/100-keystone.conf
+crudini --set $c database connection $DB://keystone:$mpw@$IP/keystone
+crudini --set $c DEFAULT admin_token "$SERVICE_TOKEN"
+crudini --set $c DEFAULT public_workers 2
+crudini --set $c DEFAULT admin_workers 2
 
 # keystone needs now apache with wsgi (modified version
 # https://github.com/openstack/keystone/blob/master/httpd/wsgi-keystone.conf )
@@ -385,7 +422,7 @@ start_and_enable_service apache2
 sleep 5
 
 # migrate database for keystone (previously done in the keystone init script)
-su keystone -s /bin/sh -c "keystone-manage --config-file=/etc/keystone/keystone.conf db_sync"
+su keystone -s /bin/sh -c "keystone-manage db_sync"
 
 keystone_data=/usr/lib/devstack/keystone_data.sh
 ENABLED_SERVICES="g-api,g-reg,key,n-api,n-cpu,n-net,n-vol,c-api,n-sch,n-novnc,n-xvnc,q-svc,heat,m-api,mysql,rabbit"
@@ -401,7 +438,15 @@ fi
 if [ "x$with_barbican" = "xyes" ]; then
     ENABLED_SERVICES+=",barbican-api,barbican-retry,barbican-keystone-listener,barbican-worker"
 fi
-
+if [ "x$with_sahara" = "xyes" ]; then
+    ENABLED_SERVICES+=",sahara-api,sahara-engine"
+fi
+if [ "x$with_designate" = "xyes" ]; then
+    ENABLED_SERVICES+=",designate-api,designate-central"
+fi
+if [ "x$with_gnocchi" = "xyes" ]; then
+    ENABLED_SERVICES+=",gnocchi-api,gnocchi-statsd,gnocchi-metricd"
+fi
 
 SERVICE_ENDPOINT=$KEYSTONE_AUTH_PROTOCOL://$KEYSTONE_AUTH_HOST:$KEYSTONE_AUTH_PORT
 
@@ -421,30 +466,44 @@ fi
 #-----------------------------------------
 ## setup neutron configuration
 #-----------------------------------------
-
 SERVICE_TENANT_ID=`get_service_tenant_id`
-c=/etc/neutron/neutron.conf
+
+c=/etc/neutron/neutron.conf.d/100-neutron.conf
 crudini --set $c database connection $DB://neutron:$mpw@$IP/neutron
+crudini --set $c DEFAULT core_plugin neutron.plugins.ml2.plugin.Ml2Plugin
+crudini --set $c DEFAULT service_plugins "neutron.services.l3_router.l3_router_plugin.L3RouterPlugin"
 crudini --set $c DEFAULT allow_overlapping_ips true
 crudini --set $c DEFAULT notify_nova_on_port_status_change true
 crudini --set $c DEFAULT notify_nova_on_port_data_changes true
 
-crudini --set /etc/neutron/plugins/ml2/linuxbridge_agent.ini linux_bridge physical_interface_mappings physnet1:$TENANT_ETH
-crudini --set /etc/neutron/plugins/ml2/linuxbridge_agent.ini securitygroup firewall_driver neutron.agent.linux.iptables_firewall.IptablesFirewallDriver
-crudini --set /etc/neutron/plugins/ml2/linuxbridge_agent.ini vxlan enable_vxlan False
-crudini --set /etc/neutron/plugins/ml2/ml2_conf.ini ml2 tenant_network_types vlan
-crudini --set /etc/neutron/plugins/ml2/ml2_conf.ini ml2 type_drivers local,flat,vlan
-crudini --set /etc/neutron/plugins/ml2/ml2_conf.ini ml2_type_vlan network_vlan_ranges physnet1:$TENANT_VLAN_RANGE
-crudini --set /etc/neutron/plugins/ml2/ml2_conf.ini securitygroup enable_ipset False
-crudini --set /etc/neutron/dhcp_agent.ini DEFAULT use_namespaces true
-crudini --set /etc/neutron/l3_agent.ini DEFAULT use_namespaces true
+c_lba=/etc/neutron/neutron-linuxbridge-agent.conf.d/100-linuxbrdige-agent.conf
+crudini --set $c_lba linux_bridge physical_interface_mappings physnet1:$TENANT_ETH
+crudini --set $c_lba securitygroup firewall_driver neutron.agent.linux.iptables_firewall.IptablesFirewallDriver
+crudini --set $c_lba vxlan enable_vxlan False
+
+c_ml2=/etc/neutron/plugins/ml2/ml2_conf.ini
+crudini --set $c_ml2 ml2 mechanism_drivers linuxbridge
+crudini --set $c_ml2 ml2 tenant_network_types vlan
+crudini --set $c_ml2 ml2 type_drivers local,flat,vlan
+crudini --set $c_ml2 ml2_type_vlan network_vlan_ranges physnet1:$TENANT_VLAN_RANGE
+crudini --set $c_ml2 securitygroup firewall_driver neutron.agent.linux.iptables_firewall.IptablesFirewallDriver
+crudini --set $c_ml2 securitygroup enable_ipset False
+
+c_dhcpa=/etc/neutron/neutron-dhcp-agent.conf.d/100-dhcp-agent.conf
+crudini --set $c_dhcpa DEFAULT dhcp_delete_namespaces True
+crudini --set $c_dhcpa DEFAULT use_namespaces true
+crudini --set $c_dhcpa DEFAULT interface_driver neutron.agent.linux.interface.BridgeInterfaceDriver
+
+c_l3a=/etc/neutron/neutron-l3-agent.conf.d/100-l3-agent.conf
+crudini --set $c_l3a DEFAULT use_namespaces true
+crudini --set $c_l3a DEFAULT interface_driver neutron.agent.linux.interface.BridgeInterfaceDriver
+
 crudini --set /etc/neutron/metadata_agent.ini DEFAULT metadata_proxy_shared_secret $metadata_secret
 
 if [ "x$with_tempest" = "xyes" ]; then
-    crudini --set /etc/neutron/neutron.conf DEFAULT service_plugins "neutron_lbaas.services.loadbalancer.plugin.LoadBalancerPluginv2, neutron.services.l3_router.l3_router_plugin.L3RouterPlugin, neutron.services.vpn.plugin.VPNDriverPlugin, neutron.services.metering.metering_plugin.MeteringPlugin, neutron.services.firewall.fwaas_plugin.FirewallPlugin"
+    crudini --set $c DEFAULT service_plugins "neutron_lbaas.services.loadbalancer.plugin.LoadBalancerPluginv2, neutron.services.l3_router.l3_router_plugin.L3RouterPlugin, neutron.services.vpn.plugin.VPNDriverPlugin, neutron.services.metering.metering_plugin.MeteringPlugin, neutron.services.firewall.fwaas_plugin.FirewallPlugin"
     # configure Neutron Lbaas v2 service
     crudini --set /etc/neutron/neutron_lbaas.conf service_providers service_provider "LOADBALANCERV2:Haproxy:neutron_lbaas.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default"
-    crudini --set /etc/neutron/lbaas_agent.ini DEFAULT interface_driver neutron.agent.linux.interface.BridgeInterfaceDriver
 fi
 
 start_and_enable_service rabbitmq-server
@@ -467,17 +526,6 @@ if [ "x$with_tempest" = "xyes" ]; then
     start_and_enable_service openstack-neutron-lbaasv2-agent
 fi
 
-### wait until neutron will start
-cnt=0
-while : ; do
-    if [[ $cnt -gt 6 ]] ; then
-        echo "Can't reach neutron server. Exiting !!!" >&2
-        exit 1
-    fi
-    neutron net-list && break
-    cnt=$(($cnt+1))
-    sleep 2
-done
 ### create subnets
 ## fixed
 neutron net-create fixed --tenant-id $SERVICE_TENANT_ID --shared --provider:network_type vlan \
@@ -550,15 +598,13 @@ fi
 #-----------------------------------------
 ## setup heat configuration
 #-----------------------------------------
-
 setup_messaging_client /etc/heat/heat.conf $IP $pw
-crudini --set /etc/heat/heat.conf database connection $DB://heat:$mpw@$IP/heat
-crudini --set /etc/heat/heat.conf DEFAULT deferred_auth_method trusts
-crudini --set /etc/heat/heat.conf DEFAULT num_engine_workers "1"
-crudini --set /etc/heat/heat.conf heat_api workers "1"
-crudini --set /etc/heat/heat.conf clients_keystone auth_uri "http://$IP:35357/"
-crudini --set /etc/heat/heat.conf trustee auth_plugin password
-crudini --set /etc/heat/heat.conf trustee auth_url "http://$IP:35357/"
+c=/etc/heat/heat.conf.d/100-heat.conf
+crudini --set $c database connection $DB://heat:$mpw@$IP/heat
+crudini --set $c DEFAULT deferred_auth_method trusts
+crudini --set $c DEFAULT num_engine_workers "1"
+crudini --set $c heat_api workers "1"
+crudini --set $c clients_keystone auth_uri "http://$IP:35357/"
 
 
 HEAT_DOMAIN_ID=$(openstack --os-token $SERVICE_TOKEN --os-url=$KEYSTONE_PUBLIC_ENDPOINT_V3 \
@@ -566,7 +612,7 @@ HEAT_DOMAIN_ID=$(openstack --os-token $SERVICE_TOKEN --os-url=$KEYSTONE_PUBLIC_E
     --description "Owns users and projects created by heat" \
     | awk '/id/  { print $4 } ')
 
-crudini --set /etc/heat/heat.conf DEFAULT stack_user_domain $HEAT_DOMAIN_ID
+crudini --set $c DEFAULT stack_user_domain $HEAT_DOMAIN_ID
 
 openstack --os-token $SERVICE_TOKEN --os-url=$KEYSTONE_PUBLIC_ENDPOINT_V3 \
     --os-identity-api-version=3 user create --password $ADMIN_PASSWORD \
@@ -576,8 +622,8 @@ openstack --os-token $SERVICE_TOKEN --os-url=$KEYSTONE_PUBLIC_ENDPOINT_V3 \
     --os-identity-api-version=3 role add \
     --user heat_domain_admin --domain ${HEAT_DOMAIN_ID} admin
 
-crudini --set /etc/heat/heat.conf DEFAULT stack_domain_admin heat_domain_admin
-crudini --set /etc/heat/heat.conf DEFAULT stack_domain_admin_password $ADMIN_PASSWORD
+crudini --set $c DEFAULT stack_domain_admin heat_domain_admin
+crudini --set $c DEFAULT stack_domain_admin_password $ADMIN_PASSWORD
 
 for s in openstack-heat-engine openstack-heat-api-cfn openstack-heat-api; do
     start_and_enable_service $s
@@ -626,7 +672,7 @@ if [ "x$with_manila" = "xyes" ]; then
     install_packages nfs-kernel-server nfs-client nfs-utils
     start_and_enable_service nfsserver
 
-    c="/etc/manila/manila.conf"
+    c="/etc/manila/manila.conf.d/100-manila.conf"
     setup_messaging_client $c $IP $pw
     crudini --set $c DEFAULT my_ip "$IP"
     crudini --set $c DEFAULT default_share_type "default"
@@ -654,19 +700,7 @@ fi
 # setup OpenStack Magnum
 #-----------------------------------------
 if [ "x$with_magnum" = "xyes" ]; then
-    # setup an image
-    #MAGNUM_GUEST_IMAGE_URL=${MAGNUM_GUEST_IMAGE_URL:-"https://fedorapeople.org/groups/magnum/fedora-23-atomic-20160405.qcow2"}
-    #wget --progress=dot:mega -O /tmp/magnum-test-image.qcow2 $MAGNUM_GUEST_IMAGE_URL
-    #openstack image create --public --container-format bare \
-    #          --disk-format qcow2 \
-    #          --property os_distro=fedora-atomic \
-    #          --file /tmp/magnum-test-image.qcow2 \
-    #          magnum-fedora-atomic
-    # create key
-    #ssh-keygen -f ~/.ssh/id_rsa_magnum -t rsa -N ''
-    #nova keypair-add --pub-key ~/.ssh/id_rsa_magnum.pub magnum
-
-    c="/etc/magnum/magnum.conf"
+    c="/etc/magnum/magnum.conf.d/100-magnum.conf"
     setup_messaging_client $c $IP $pw
 
     trustee_domain_id=$(get_or_create_domain magnum 'Owns users and projects created by magnum')
@@ -681,6 +715,8 @@ if [ "x$with_magnum" = "xyes" ]; then
     crudini --set $c database connection "$DB://magnum:${mpw}@${IP}/magnum"
     crudini --set $c cinder_client region_name RegionOne
     crudini --set $c api host $IP
+    crudini --set $c certificates cert_manager_type local
+    crudini --set $c certificates storage_path /var/lib/magnum/certificates/
 
     start_and_enable_service openstack-magnum-api
     start_and_enable_service openstack-magnum-conductor
@@ -690,7 +726,7 @@ fi
 # setup OpenStack Barbican
 #-----------------------------------------
 if [ "x$with_barbican" = "xyes" ]; then
-    c="/etc/barbican/barbican.conf"
+    c="/etc/barbican/barbican.conf.d/100-barbican.conf"
     setup_messaging_client $c $IP $pw
 
     a2enmod rewrite
@@ -709,6 +745,46 @@ if [ "x$with_barbican" = "xyes" ]; then
     start_and_enable_service openstack-barbican-keystone-listener
     start_and_enable_service openstack-barbican-retry
     start_and_enable_service openstack-barbican-worker
+fi
+
+#-----------------------------------------
+# setup OpenStack Sahara
+#-----------------------------------------
+if [ "x$with_sahara" = "xyes" ]; then
+    c="/etc/sahara/sahara.conf.d/100-sahara.conf"
+    setup_messaging_client $c $IP $pw
+
+    crudini --set $c database connection "$DB://sahara:${mpw}@${IP}/sahara"
+
+    #TODO(toabctl): configure and start services
+    #start_and_enable_service openstack-sahara-api
+    #start_and_enable_service openstack-sahara-engine
+fi
+
+#-----------------------------------------
+# setup OpenStack Designate
+#-----------------------------------------
+if [ "x$with_designate" = "xyes" ]; then
+    c="/etc/designate/designate.conf.d/100-designate.conf"
+    setup_messaging_client $c $IP $pw
+
+    crudini --set $c database connection "$DB://designate:${mpw}@${IP}/designate"
+
+    #TODO(toabctl): configure and start services
+    #start_and_enable_service openstack-designate-api
+fi
+
+#-----------------------------------------
+# setup OpenStack Gnocchi
+#-----------------------------------------
+if [ "x$with_gnocchi" = "xyes" ]; then
+    c="/etc/gnocchi/gnocchi.conf.d/100-gnocchi.conf"
+    setup_messaging_client $c $IP $pw
+
+    crudini --set $c database connection "$DB://gnocchi:${mpw}@${IP}/gnocchi"
+
+    #TODO(toabctl): configure and start services
+    #start_and_enable_service openstack-gnocchi-statsd
 fi
 
 
