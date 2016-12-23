@@ -443,7 +443,7 @@ crudini --set $c DEFAULT nova_url "http://$SERVICE_HOST:8774/v2"
 crudini --set $c DEFAULT nova_admin_username nova
 crudini --set $c DEFAULT nova_admin_password $ADMIN_PASSWORD
 crudini --set $c DEFAULT nova_admin_tenant_id $SERVICE_TENANT_ID
-crudini --set $c DEFAULT nova_admin_auth_url $KEYSTONE_PUBLIC_ENDPOINT
+crudini --set $c DEFAULT nova_admin_auth_url "http://$SERVICE_HOST:35357/v2"
 
 crudini --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini linux_bridge physical_interface_mappings root-bridge:vefq,physnet1:eth0
 crudini --set /etc/neutron/plugins/linuxbridge/linuxbridge_conf.ini securitygroup firewall_driver neutron.agent.linux.iptables_firewall.IptablesFirewallDriver
