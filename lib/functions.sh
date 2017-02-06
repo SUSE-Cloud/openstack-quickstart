@@ -132,12 +132,14 @@ function setup_node_for_nova_compute() {
     crudini --set /etc/libvirt/libvirtd.conf "" auth_tcp '"none"'
     #crudini --set /etc/libvirt/libvirtd.conf "" listen_addr $MY_ADMINIP
 
-    grep -q -e vmx -e svm /proc/cpuinfo || MODE=lxc
+    grep -q -e vmx -e svm /proc/cpuinfo || MODE=qemu
     # use lxc or qemu, if kvm is unavailable
     if rpm -q openstack-nova-compute >/dev/null ; then
         if [ "$MODE" = lxc ] ; then
             crudini --set /etc/nova/nova.conf libvirt virt_type lxc
             install_packages lxc
+        elif [ "$MODE" = qemu ] ; then
+            crudini --set /etc/nova/nova.conf libvirt virt_type qemu
         else
             grep -qw vmx /proc/cpuinfo && {
                 modprobe kvm-intel
