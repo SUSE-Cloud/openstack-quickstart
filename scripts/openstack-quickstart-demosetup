@@ -528,27 +528,38 @@ fi
 
 ### create subnets
 ## fixed
-neutron net-create fixed --tenant-id $SERVICE_TENANT_ID --shared --provider:network_type vlan \
-    --provider:segmentation_id $FIXED_VLAN  --provider:physical_network physnet1
-
-neutron subnet-create --name fixed --dns-nameserver 8.8.8.8 --dns-nameserver 8.8.4.4 fixed $testnet
-neutron router-create --tenant-id $SERVICE_TENANT_ID public
-neutron router-interface-add public fixed
-
-## floating/external
-if [ x$FLOATING_VLAN != x ]; then
-    neutron net-create ext --tenant-id $SERVICE_TENANT_ID --provider:network_type vlan \
-        --router:external --provider:segmentation_id $FLOATING_VLAN --provider:physical_network physnet1
-else
-    neutron net-create ext --tenant-id $SERVICE_TENANT_ID --provider:network_type local --router:external
+if ! neutron net-show fixed; then
+    neutron net-create fixed --tenant-id $SERVICE_TENANT_ID --shared --provider:network_type vlan \
+            --provider:segmentation_id $FIXED_VLAN  --provider:physical_network physnet1
 fi
 
-if [ x$FLOATING_VLAN != x ]; then
-    ext_network_id=$(neutron net-list | grep ' ext '  | cut -d' ' -f2)
-    neutron subnet-create --name ext --disable-dhcp --tenant-id $SERVICE_TENANT_ID $floatingpool $floatinggateway ext $floatingnet
-else
-    ext_network_id=$(neutron net-list | grep ' ext '  | cut -d' ' -f2)
-    neutron subnet-create --name ext --disable-dhcp --tenant-id $SERVICE_TENANT_ID ext $floatingnet
+if ! neutron subnet-show fixed; then
+    neutron subnet-create --name fixed --dns-nameserver 8.8.8.8 --dns-nameserver 8.8.4.4 fixed $testnet
+fi
+
+if ! neutron router-show public; then
+    neutron router-create --tenant-id $SERVICE_TENANT_ID public
+    neutron router-interface-add public fixed
+fi
+
+## floating/external
+if ! neutron net-show ext ; then
+    if [ x$FLOATING_VLAN != x ]; then
+        neutron net-create ext --tenant-id $SERVICE_TENANT_ID --provider:network_type vlan \
+                --router:external --provider:segmentation_id $FLOATING_VLAN --provider:physical_network physnet1
+    else
+        neutron net-create ext --tenant-id $SERVICE_TENANT_ID --provider:network_type local --router:external
+    fi
+fi
+
+if ! neutron subnet-show ext; then
+    if [ x$FLOATING_VLAN != x ]; then
+        ext_network_id=$(neutron net-list | grep ' ext '  | cut -d' ' -f2)
+        neutron subnet-create --name ext --disable-dhcp --tenant-id $SERVICE_TENANT_ID $floatingpool $floatinggateway ext $floatingnet
+    else
+        ext_network_id=$(neutron net-list | grep ' ext '  | cut -d' ' -f2)
+        neutron subnet-create --name ext --disable-dhcp --tenant-id $SERVICE_TENANT_ID ext $floatingnet
+    fi
 fi
 neutron router-gateway-set public ext
 # create four floatingip pools
