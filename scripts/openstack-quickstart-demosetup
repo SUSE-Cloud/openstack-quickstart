@@ -617,22 +617,11 @@ crudini --set $c DEFAULT num_engine_workers "1"
 crudini --set $c heat_api workers "1"
 crudini --set $c clients_keystone auth_uri "http://$IP:35357/"
 
-
-HEAT_DOMAIN_ID=$(openstack --os-token $SERVICE_TOKEN --os-url=$KEYSTONE_PUBLIC_ENDPOINT_V3 \
-    --os-identity-api-version=3 domain create heat \
-    --description "Owns users and projects created by heat" \
-    | awk '/id/  { print $4 } ')
+HEAT_DOMAIN_ID=$(get_or_create_domain heat 'Owns users and projects created by heat')
+get_or_create_user heat_domain_admin $ADMIN_PASSWORD $HEAT_DOMAIN_ID
+get_or_add_user_domain_role admin heat_domain_admin $HEAT_DOMAIN_ID
 
 crudini --set $c DEFAULT stack_user_domain $HEAT_DOMAIN_ID
-
-openstack --os-token $SERVICE_TOKEN --os-url=$KEYSTONE_PUBLIC_ENDPOINT_V3 \
-    --os-identity-api-version=3 user create --password $ADMIN_PASSWORD \
-    --domain $HEAT_DOMAIN_ID heat_domain_admin \
-    --description "Manages users and projects created by heat"
-openstack --os-token $SERVICE_TOKEN --os-url=$KEYSTONE_PUBLIC_ENDPOINT_V3 \
-    --os-identity-api-version=3 role add \
-    --user heat_domain_admin --domain ${HEAT_DOMAIN_ID} admin
-
 crudini --set $c DEFAULT stack_domain_admin heat_domain_admin
 crudini --set $c DEFAULT stack_domain_admin_password $ADMIN_PASSWORD
 
