@@ -506,6 +506,21 @@ if [ "x$with_tempest" = "xyes" ]; then
     crudini --set /etc/neutron/neutron_lbaas.conf service_providers service_provider "LOADBALANCERV2:Haproxy:neutron_lbaas.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default"
 fi
 
+# the default systemd socket activation only listens on the loopback interface
+# which causes rabbitmq to try to start its own epmd
+mkdir -p /etc/systemd/system/epmd.socket.d
+cat <<EOF > /etc/systemd/system/epmd.socket.d/ports.conf
+[Socket]
+ListenStream=
+ListenStream=[::]:4369
+EOF
+systemctl daemon-reload
+systemctl restart epmd.socket epmd.service
+
+# as workaround, we need to install rabbitmq-server-plugins to not get:
+# {"init terminating in do_boot",{undef,[{rabbit_nodes,ensure_epmd,[],[]},{rabbit_cli,start_distribution,0,[{file,"src/rabbit_cli.erl...
+install_packages rabbitmq-server-plugins
+
 start_and_enable_service rabbitmq-server
 
 sleep 2
