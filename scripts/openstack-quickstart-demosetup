@@ -138,8 +138,9 @@ start_and_enable_service iscsid
 # Set up the database
 if [ "$DB" = "postgresql" ] ; then
     sudo -u postgres dropdb keystone || true # needed for keystone_data.sh
-    for DBNAME in nova nova_api cinder keystone glance horizon heat neutron \
-                       manila magnum barbican sahara designate gnocchi ; do
+    for DBNAME in nova nova_api nova_cell0 cinder keystone glance horizon heat \
+                       neutron manila magnum barbican sahara designate \
+                       gnocchi ; do
         # use ALTER if CREATE fails: the role probably already exists
         # in that case
         sudo -u postgres psql -c "CREATE ROLE $DBNAME PASSWORD '$mpw' LOGIN;" || \
@@ -296,6 +297,7 @@ for i in $(seq 1 64); do
 done
 
 c=/etc/nova/nova.conf.d/100-nova.conf
+setup_messaging_client $c $IP $pw
 crudini --set $c database connection "$DB://nova:$mpw@$IP/nova"
 crudini --set $c api_database connection "$DB://nova_api:$mpw@$IP/nova_api"
 crudini --set $c glance host $IP
@@ -619,6 +621,10 @@ fi
 
 # migrate data directly
 nova-manage db online_data_migrations
+
+# do cell setup (mandatory since Ocata)
+nova-manage cell_v2 simple_cell_setup --transport-url rabbit://openstack:$pw@$IP
+nova-manage cell_v2 discover_hosts --verbose
 
 if [ "x$with_tempest" = "xyes" ]; then
     start_and_enable_service openstack-ec2-api-s3
