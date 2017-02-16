@@ -244,6 +244,7 @@ setup_keystone_authtoken /etc/heat/heat.conf.d/100-heat.conf heat $ADMIN_PASSWOR
 setup_keystone_authtoken /etc/heat/heat.conf.d/100-heat.conf heat $ADMIN_PASSWORD trustee
 setup_keystone_authtoken /etc/nova/nova.conf.d/100-nova.conf nova $ADMIN_PASSWORD
 setup_keystone_authtoken /etc/nova/nova.conf.d/100-nova.conf neutron $ADMIN_PASSWORD neutron
+setup_keystone_authtoken /etc/nova/nova.conf.d/100-nova.conf placement $ADMIN_PASSWORD placement
 
 if [ "x$with_manila" = "xyes" ]; then
     setup_keystone_authtoken /etc/manila/manila.conf.d/100-manila.conf manila $ADMIN_PASSWORD
@@ -310,11 +311,20 @@ crudini --set $c DEFAULT osapi_compute_workers "1"
 crudini --set $c DEFAULT ec2_workers "1"
 crudini --set $c DEFAULT metadata_workers "1"
 crudini --set $c conductor workers "1"
+crudini --set $c placement os_region_name "RegionOne"
 
 metadata_secret=$(echo $ADMIN_PASSWORD | md5sum | cut -d" " -f1)
 crudini --set $c neutron service_metadata_proxy True
 crudini --set $c neutron metadata_proxy_shared_secret $metadata_secret
 crudini --set $c keymgr fixed_key "$FIXED_KEY"
+
+# placement api
+install -m 644 /etc/apache2/vhosts.d/nova-placement-api.conf{.sample,}
+
+start_and_enable_service apache2
+# may be needed if Horizon already started apache2
+service apache2 restart
+
 
 setup_nova_compute
 
