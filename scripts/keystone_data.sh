@@ -187,7 +187,20 @@ if [[ "$ENABLED_SERVICES" =~ "n-cpu" ]]; then
     # Nova needs ResellerAdmin role to download images when accessing
     # swift through the s3 api.
     get_or_add_user_project_role ResellerAdmin nova $SERVICE_PROJECT_NAME
+
+    # Nova placement
+    create_service_user "placement" "admin"
+    get_or_create_service "placement" "placement" "Placement Service"
+    get_or_create_endpoint \
+        "placement" \
+        "RegionOne" \
+        "http://$SERVICE_HOST:8780/" \
+        "http://$SERVICE_HOST:8780/" \
+        "http://$SERVICE_HOST:8780/"
+
 fi
+
+
 
 # Heat
 if [[ "$ENABLED_SERVICES" =~ "heat" ]]; then
