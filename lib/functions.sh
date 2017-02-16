@@ -201,9 +201,7 @@ function setup_messaging_client() {
     local pw=$3
     [ -e "$conf" ] || return 0
 
-    crudini --set $conf oslo_messaging_rabbit rabbit_host $ip
-    crudini --set $conf oslo_messaging_rabbit rabbit_userid openstack
-    crudini --set $conf oslo_messaging_rabbit rabbit_password $pw
+    crudini --set $conf DEFAULT transport_url rabbit://openstack:$pw@$ip
 }
 
 # see also devstack/keystone configure_auth_token_middleware()
