@@ -70,6 +70,10 @@ if [ "x$with_gnocchi" = "xyes" ]; then
 fi
 
 
+if [ "x$with_monasca" = "xyes" ]; then
+    install_packages monasca-log-agent
+fi
+
 if [ "$DB" = "postgresql" ] ; then
     if grep -q "SUSE Linux Enterprise Server 11" /etc/SuSE-release; then
         install_packages postgresql91-server python-psycopg2
@@ -787,6 +791,25 @@ if [ "x$with_gnocchi" = "xyes" ]; then
     #start_and_enable_service openstack-gnocchi-statsd
 fi
 
+#-----------------------------------------
+# setup Monasca
+#-----------------------------------------
+
+if [ "x$with_monasca" = "xyes" ]; then
+# monasca-log-agent
+    cp /etc/monasca-log-agent/agent.conf.sample /etc/monasca-log-agent/agent.conf
+    c="/etc/monasca-log-agent/agent.conf"
+    sed -i "s:\(monasca_log_api_url =>\).*:\1 \"http\://$IP\:8070/v3.0\":" $c
+    sed -i "s:\(keystone_api_url =>\).*:\1 \"http\://$IP\:5000/v3/\":" $c
+    sed -i "s:\(project_name =>\).*:\1 \"admin\":" $c
+    sed -i "s:\(username =>\).*:\1 \"admin\":" $c
+    sed -i "s:\(password =>\).*:\1 \"$pw\":" $c
+    sed -i "s:\(user_domain_name =>\).*:\1 \"Default\":" $c
+    sed -i "s:\(project_domain_name =>\).*:\1 \"Default\":" $c
+    sed -i "s:\(dimensions => \).*:\1 [ \"hostname\:monasca\" ]:" $c
+
+    start_and_enable_service  monasca-log-agent
+fi
 
 #-----------------------------------------
 # setup tempest configuration
