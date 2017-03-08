@@ -69,6 +69,27 @@ if [ "x$with_gnocchi" = "xyes" ]; then
                      python-gnocchiclient
 fi
 
+if [ "x$with_monasca" = "xyes" ]; then
+    install_packages openstack-monasca-log-agent openstack-monasca-agent \
+                     openstack-horizon-plugin-monasca-ui \
+                     openstack-monasca-agent \
+                     openstack-monasca-api \
+                     openstack-monasca-log-agent \
+                     openstack-monasca-log-api \
+                     openstack-monasca-log-metrics \
+                     openstack-monasca-log-persister \
+                     openstack-monasca-log-transformer \
+                     openstack-monasca-notification \
+                     openstack-monasca-persister-java \
+                     openstack-monasca-thresh \
+                     elasticsearch \
+                     influxdb \
+                     kafka \
+                     kibana \
+                     mariadb \
+                     storm-logviewer storm-nimbus storm-pacemaker storm-supervisor \
+                     zookeeper-server
+fi
 
 if [ "$DB" = "postgresql" ] ; then
     if grep -q "SUSE Linux Enterprise Server 11" /etc/SuSE-release; then
@@ -98,6 +119,11 @@ if [ "$DB" = "postgresql" ] ; then
         stop_and_disable_service $DB
     fi
 
+    if [ "x$with_monasca" = "xyes" ]; then
+        # Monasca needs MySQL either way
+        start_and_enable_service mysql
+    fi
+
     # increase max connections for multinode setup (this needs a restart)
     sed -i "s/^max_connections =.*/max_connections=1000/g" $DATADIR/postgresql.conf
 
@@ -114,13 +140,13 @@ if [ "$DB" = "postgresql" ] ; then
     fi
 else
     echo | mysql -u root || pwquery=-p
-    for DBNAME in nova cinder keystone glance horizon neutron manila barbican sahara designate gnocchi; do
+    for DBNAME in nova cinder keystone glance horizon monasca neutron manila barbican sahara designate gnocchi; do
         echo "
         set global character_set_server=latin1;
         set session character_set_server=latin1;
         CREATE DATABASE IF NOT EXISTS $DBNAME;
         GRANT ALL PRIVILEGES ON $DBNAME.* TO '$DBNAME'@localhost IDENTIFIED BY '$mpw';
-        GRANT ALL PRIVILEGES ON $DBNAME.* TO '$DBNAME'@'%' IDENTIFIED BY '$mpw';
+        GRANT ALL PRIVILEGES ON $DBNAME.* TO '$DBNAME'@'$(hostnamectl --static)' IDENTIFIED BY '$mpw';
         " | mysql -u root $pwquery
     done
 fi
@@ -148,6 +174,16 @@ if [ "$DB" = "postgresql" ] ; then
         sudo -u postgres createdb -O $DBNAME $DBNAME || true
     done
     sudo -u postgres createuser -s root || :
+
+  # Monasca needs MySQL either way, so create a MySQL database for its use
+  echo | mysql -u root || pwquery=-p
+  echo "
+  set global character_set_server=latin1;
+  set session character_set_server=latin1;
+  CREATE DATABASE IF NOT EXISTS monasca;
+  GRANT ALL PRIVILEGES ON monasca.* TO 'monasca'@localhost IDENTIFIED BY '$mpw';
+  GRANT ALL PRIVILEGES ON monasca.* TO 'monasca'@'$(hostnamectl --static)' IDENTIFIED BY '$mpw';
+  " | mysql -u root $pwquery
 fi
 
 if [ "x$node_is_compute" = "xyes" ]; then
@@ -456,6 +492,9 @@ if [ "x$with_designate" = "xyes" ]; then
 fi
 if [ "x$with_gnocchi" = "xyes" ]; then
     ENABLED_SERVICES+=",gnocchi-api,gnocchi-statsd,gnocchi-metricd"
+fi
+if [ "x$with_monasca" = "xyes" ]; then
+    ENABLED_SERVICES+=",monasca-api,monasca-log-api"
 fi
 
 SERVICE_ENDPOINT=$KEYSTONE_AUTH_PROTOCOL://$KEYSTONE_AUTH_HOST:$KEYSTONE_AUTH_PORT
@@ -816,6 +855,91 @@ if [ "x$with_gnocchi" = "xyes" ]; then
     #start_and_enable_service openstack-gnocchi-statsd
 fi
 
+#-----------------------------------------
+# setup Monasca
+#-----------------------------------------
+
+if [ "x$with_monasca" = "xyes" ]; then
+# prerequisite services
+start_and_enable_service zookeeper
+start_and_enable_service kafka
+
+start_and_enable_service storm-supervisor
+start_and_enable_service storm-pacemaker
+start_and_enable_service storm-nimbus
+
+start_and_enable_service influxdb
+start_and_enable_service mysql
+start_and_enable_service elasticsearch
+start_and_enable_service kibana
+
+# Influxdb database
+echo 'create database mon' | influx
+
+# Keystone users, projects and roles
+get_or_create_project monasca
+
+get_or_create_user monasca-operator $pw
+get_or_create_user monasca-agent $pw
+get_or_create_user monasca-admin-agent $pw
+
+get_or_create_role monasca-user
+get_or_create_role monasca-agent
+get_or_create_role monasca-operator
+
+# Roles for monasca-operator user
+get_or_add_user_project_role monasca-user monasca-operator monasca
+get_or_add_user_project_role admin monasca-operator monasca
+
+# Roles for monasca-agent user
+get_or_add_user_project_role monasca-agent monasca-agent monasca
+
+# Monasca roles in admin project
+get_or_add_user_project_role monasca-user admin admin
+get_or_add_user_project_role monasca-agent monasca-admin-agent admin
+
+### monasca-api
+c=/etc/monasca/api-config.conf
+mv /etc/apache2/vhosts.d/monasca-api.conf.sample /etc/apache2/vhosts.d/monasca-api.conf
+setup_keystone_authtoken $c monasca $ADMIN_PASSWORD
+crudini --set $c DEFAULT region RegionOne
+crudini --set $c database url "mysql+pymysql://monasca:$mpw@$IP/monasca"
+
+### monasca-log-api
+c=/etc/monasca/log-api-config.conf
+mv /etc/apache2/vhosts.d/monasca-log-api.conf.sample /etc/apache2/vhosts.d/monasca-log-api.conf
+setup_keystone_authtoken $c monasca $ADMIN_PASSWORD
+crudini --set $c service region RegionOne
+
+start_and_enable_service apache2
+# may be needed if Horizon already started apache2
+service apache2 restart
+
+# monasca-log-agent
+    cp /etc/monasca-log-agent/agent.conf.sample /etc/monasca-log-agent/agent.conf
+    c="/etc/monasca-log-agent/agent.conf"
+    sed -i "s#\(monasca_log_api_url =>\).*#\1 \"http://${IP}:8070/v3.0\"#" $c
+    sed -i "s#\(keystone_api_url =>\).*#\1 \"${KEYSTONE_PUBLIC_ENDPOINT_V3}\"#" $c
+    sed -i "s#\(project_name =>\).*#\1 \"admin\"#" $c
+    sed -i "s#\(username =>\).*#\1 \"admin\"#" $c
+    sed -i "s#\(password =>\).*#\1 \"$pw\"#" $c
+    sed -i "s#\(user_domain_name =>\).*#\1 \"Default\"#" $c
+    sed -i "s#\(project_domain_name =>\).*#\1 \"Default\"#" $c
+    sed -i "s#\(dimensions => \).*#\1 [ \"hostname:monasca\" ]#" $c
+    start_and_enable_service  openstack-monasca-log-agent
+
+    # monasca-agent
+    monasca-setup \
+    -u 'admin' \
+    -p "$pw" \
+    --project_name 'admin'\
+    --log_dir /var/log/monasca-agent/ \
+    --skip_enable \
+    --user 'monasca-agent' \
+    --keystone_url "${KEYSTONE_PUBLIC_ENDPOINT_V3}" \
+    --monasca_url "http://${IP}:8070/v3.0/"
+    start_and_enable_service  openstack-monasca-agent
+fi
 
 #-----------------------------------------
 # setup tempest configuration
