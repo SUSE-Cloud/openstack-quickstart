@@ -69,6 +69,28 @@ if [ "x$with_gnocchi" = "xyes" ]; then
                      python-gnocchiclient
 fi
 
+if [ "x$with_monasca" = "xyes" ]; then
+    install_packages openstack-monasca-log-agent openstack-monasca-agent \
+                     openstack-horizon-plugin-monasca-ui \
+                     openstack-monasca-agent \
+                     openstack-monasca-api \
+                     openstack-monasca-log-agent \
+                     openstack-monasca-log-api \
+                     openstack-monasca-log-metrics \
+                     openstack-monasca-log-persister \
+                     openstack-monasca-log-transformer \
+                     openstack-monasca-notification \
+                     openstack-monasca-persister-java \
+                     openstack-monasca-thresh \
+                     monasca-installer \
+                     elasticsearch \
+                     influxdb \
+                     kafka \
+                     kibana \
+                     mariadb \
+                     storm-logviewer storm-nimbus storm-pacemaker storm-supervisor \
+                     zookeeper-server
+fi
 
 if [ "$DB" = "postgresql" ] ; then
     if grep -q "SUSE Linux Enterprise Server 11" /etc/SuSE-release; then
@@ -98,6 +120,11 @@ if [ "$DB" = "postgresql" ] ; then
         stop_and_disable_service $DB
     fi
 
+    if [ "x$with_monasca" = "xyes" ]; then
+        # Monasca needs MySQL either way
+        start_and_enable_service mysql
+    fi
+
     # increase max connections for multinode setup (this needs a restart)
     sed -i "s/^max_connections =.*/max_connections=1000/g" $DATADIR/postgresql.conf
 
@@ -114,13 +141,13 @@ if [ "$DB" = "postgresql" ] ; then
     fi
 else
     echo | mysql -u root || pwquery=-p
-    for DBNAME in nova cinder keystone glance horizon neutron manila barbican sahara designate gnocchi; do
+    for DBNAME in nova cinder keystone glance horizon monasca neutron manila barbican sahara designate gnocchi; do
         echo "
         set global character_set_server=latin1;
         set session character_set_server=latin1;
         CREATE DATABASE IF NOT EXISTS $DBNAME;
         GRANT ALL PRIVILEGES ON $DBNAME.* TO '$DBNAME'@localhost IDENTIFIED BY '$mpw';
-        GRANT ALL PRIVILEGES ON $DBNAME.* TO '$DBNAME'@'%' IDENTIFIED BY '$mpw';
+        GRANT ALL PRIVILEGES ON $DBNAME.* TO '$DBNAME'@'$(hostnamectl --static)' IDENTIFIED BY '$mpw';
         " | mysql -u root $pwquery
     done
 fi
@@ -148,6 +175,16 @@ if [ "$DB" = "postgresql" ] ; then
         sudo -u postgres createdb -O $DBNAME $DBNAME || true
     done
     sudo -u postgres createuser -s root || :
+
+  # Monasca needs MySQL either way, so create a MySQL database for its use
+  echo | mysql -u root || pwquery=-p
+  echo "
+  set global character_set_server=latin1;
+  set session character_set_server=latin1;
+  CREATE DATABASE IF NOT EXISTS monasca;
+  GRANT ALL PRIVILEGES ON monasca.* TO 'monasca'@localhost IDENTIFIED BY '$mpw';
+  GRANT ALL PRIVILEGES ON monasca.* TO 'monasca'@'$(hostnamectl --static)' IDENTIFIED BY '$mpw';
+  " | mysql -u root $pwquery
 fi
 
 if [ "x$node_is_compute" = "xyes" ]; then
@@ -456,6 +493,9 @@ if [ "x$with_designate" = "xyes" ]; then
 fi
 if [ "x$with_gnocchi" = "xyes" ]; then
     ENABLED_SERVICES+=",gnocchi-api,gnocchi-statsd,gnocchi-metricd"
+fi
+if [ "x$with_monasca" = "xyes" ]; then
+    ENABLED_SERVICES+=",monasca-api,monasca-log-api"
 fi
 
 SERVICE_ENDPOINT=$KEYSTONE_AUTH_PROTOCOL://$KEYSTONE_AUTH_HOST:$KEYSTONE_AUTH_PORT
@@ -816,6 +856,206 @@ if [ "x$with_gnocchi" = "xyes" ]; then
     #start_and_enable_service openstack-gnocchi-statsd
 fi
 
+#-----------------------------------------
+# setup Monasca
+#-----------------------------------------
+
+if [ "x$with_monasca" = "xyes" ]; then
+    # setup ssh for ansible/monasca-installer
+    ssh_key=~/.ssh/id_rsa
+    rm -f $ssh_key
+    ssh-keygen -b 2048 -t rsa -f $ssh_key -q -N ""
+    cat $ssh_key.pub >> ~/.ssh/authorized_keys
+
+    # configure ansible
+    cat <<EOF >> ~/.ansible.cfg
+[defaults]
+host_key_checking = False
+EOF
+
+    # configure monasca-installer credentials
+    cred_file=/opt/monasca-installer/credentials.yml
+    for cred_name in influxdb_mon_api_password \
+                     influxdb_mon_persister_password \
+                     database_notification_password \
+                     database_monapi_password database_thresh_password \
+                     keystone_monasca_operator_password \
+                     keystone_monasca_agent_password \
+                     keystone_admin_agent_password \
+                     keystone_admin_password \
+                     database_grafana_password; do
+        sed -i 's!^'"$cred_name"':$!'"$cred_name"': '"$ADMIN_PASSWORD"'!' $cred_file
+    done
+
+    ### configure monasca-installer group vars
+    sed -i 's!useast!RegionOne!' /opt/monasca-installer/group_vars/monasca_log_api_group
+    sed -i 's!useast!RegionOne!' /opt/monasca-installer/group_vars/monasca_api_group
+
+    # configure monasca-installer host definitions
+    cat <<EOF >> /opt/monasca-installer/monasca-hosts
+localhost                        ansible_connection=local
+monasca-node                     ansible_ssh_host=$IP ansible_ssh_user=root
+keystone-node                    ansible_ssh_host=$IP ansible_ssh_user=root
+log-transformer-node             ansible_ssh_host=$IP ansible_ssh_user=root
+log-persister-node               ansible_ssh_host=$IP ansible_ssh_user=root
+kibana-node                      ansible_ssh_host=$IP ansible_ssh_user=root
+elasticsearch-node               ansible_ssh_host=$IP ansible_ssh_user=root
+memcached-node                   ansible_ssh_host=$IP ansible_ssh_user=root
+kafka-node                       ansible_ssh_host=$IP ansible_ssh_user=root
+zookeeper-node                   ansible_ssh_host=$IP ansible_ssh_user=root
+monasca-api-node                 ansible_ssh_host=$IP ansible_ssh_user=root
+monasca-log-api-node             ansible_ssh_host=$IP ansible_ssh_user=root
+monasca-notification-node        ansible_ssh_host=$IP ansible_ssh_user=root
+monasca-persister-node           ansible_ssh_host=$IP ansible_ssh_user=root
+monasca-log-metrics-node         ansible_ssh_host=$IP ansible_ssh_user=root
+storm-nimbus-node                ansible_ssh_host=$IP ansible_ssh_user=root
+storm-supervisor-node            ansible_ssh_host=$IP ansible_ssh_user=root
+monasca-thresh-node              ansible_ssh_host=$IP ansible_ssh_user=root
+mariadb-node                     ansible_ssh_host=$IP ansible_ssh_user=root
+elasticsearch-curator-node       ansible_ssh_host=$IP ansible_ssh_user=root
+influxdb-node                    ansible_ssh_host=$IP ansible_ssh_user=root
+
+[openstack_group]
+keystone-node
+
+[memcached_group]
+memcached-node
+
+[kafka_group]
+kafka-node
+
+[zookeeper_group]
+zookeeper-node
+
+[monasca_group]
+monasca-node
+
+[monasca_api_group]
+monasca-api-node database_node_for_api=monasca-node influxdb_node_for_api=influxdb-node
+
+[monasca_notification_group]
+monasca-notification-node database_node_for_notification=monasca-node
+
+[monasca_persister_group]
+monasca-persister-node influxdb_node_for_persister=influxdb-node
+
+[monasca_log_api_group]
+monasca-log-api-node
+
+[monasca_log_metrics_group]
+monasca-log-metrics-node
+
+[monasca_log_persister_group]
+log-persister-node
+
+[monasca_log_transformer_group]
+log-transformer-node
+
+[elasticsearch_group]
+elasticsearch-node
+
+[kibana_group]
+kibana-node es_node_for_kibana=elasticsearch-node
+
+[storm_nimbus_group]
+storm-nimbus-node
+
+[storm_supervisor_group]
+storm-supervisor-node
+
+[monasca_thresh_group]
+monasca-thresh-node database_node_for_thresh=monasca-node
+
+[mariadb_group]
+mariadb-node
+
+[elasticsearch_curator_group]
+elasticsearch-curator-node
+
+[influxdb_group]
+influxdb-node
+
+################################################################################
+# Group inheritance
+################################################################################
+
+[elkstack_group:children]
+elasticsearch_group
+kibana_group
+monasca_log_persister_group
+monasca_log_transformer_group
+monasca_log_metrics_group
+elasticsearch_curator_group
+
+[storm_group:children]
+storm_nimbus_group
+storm_supervisor_group
+
+[all_group:children]
+openstack_group
+monasca_group
+
+[monasca_group:children]
+elkstack_group
+memcached_group
+kafka_group
+zookeeper_group
+monasca_log_api_group
+monasca_api_group
+monasca_notification_group
+monasca_persister_group
+storm_group
+monasca_thresh_group
+mariadb_group
+influxdb_group
+EOF
+
+    # prerequisite services
+    start_and_enable_service zookeeper
+    start_and_enable_service kafka
+
+    start_and_enable_service storm-supervisor
+    start_and_enable_service storm-pacemaker
+    start_and_enable_service storm-nimbus
+
+    start_and_enable_service influxdb
+    start_and_enable_service mysql
+    start_and_enable_service elasticsearch
+    start_and_enable_service kibana
+
+    # Influxdb database
+    echo 'create database mon' | influx
+
+    # Keystone users, projects and roles
+    get_or_create_project monasca
+
+    get_or_create_user monasca-operator $pw
+    get_or_create_user monasca-agent $pw
+    get_or_create_user monasca-admin-agent $pw
+
+    get_or_create_role monasca-user
+    get_or_create_role monasca-agent
+    get_or_create_role monasca-operator
+
+    # Roles for monasca-operator user
+    get_or_add_user_project_role monasca-user monasca-operator monasca
+    get_or_add_user_project_role admin monasca-operator monasca
+
+    # Roles for monasca-agent user
+    get_or_add_user_project_role monasca-agent monasca-agent monasca
+
+    # Monasca roles in admin project
+    get_or_add_user_project_role monasca-user admin admin
+    get_or_add_user_project_role monasca-agent monasca-admin-agent admin
+
+
+    # finally run monasca-installer
+    (
+        cd /opt/monasca-installer
+        ansible-playbook -i monasca-hosts monasca.yml
+    )
+
+fi
 
 #-----------------------------------------
 # setup tempest configuration
