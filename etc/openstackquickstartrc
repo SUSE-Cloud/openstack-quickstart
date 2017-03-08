@@ -49,6 +49,8 @@ with_tempest=no
 
 # Setup Monasca
 with_monasca="yes"
+# TODO(sjamgade):Remove this, once monsca is integrated in ci.
+MONASCA_HOST=
 
 # Setup Nova Compute ?
 node_is_compute=yes
