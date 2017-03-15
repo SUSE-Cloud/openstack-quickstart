@@ -70,7 +70,14 @@ if [ "x$with_gnocchi" = "xyes" ]; then
 fi
 
 if [ "x$with_monasca" = "xyes" ]; then
-    install_packages openstack-monasca-log-agent openstack-monasca-agent
+    install_packages openstack-monasca-log-agent openstack-monasca-agent \
+                     elasticsearch \
+                     influxdb \
+                     kafka \
+                     kibana \
+                     mariadb \
+                     storm-logviewer storm-nimbus storm-pacemaker storm-supervisor \
+                     zookeeper-server
 fi
 
 if [ "$DB" = "postgresql" ] ; then
@@ -795,7 +802,20 @@ fi
 #-----------------------------------------
 
 if [ "x$with_monasca" = "xyes" ]; then
-    # monasca-log-agent
+# prerequisite services
+start_and_enable_service zookeeper
+start_and_enable_service kafka
+
+start_and_enable_service storm-supervisor
+start_and_enable_service storm-pacemaker
+start_and_enable_service storm-nimbus
+
+start_and_enable_service influxdb
+start_and_enable_service mysql
+start_and_enable_service elasticsearch
+start_and_enable_service kibana
+
+# monasca-log-agent
     cp /etc/monasca-log-agent/agent.conf.sample /etc/monasca-log-agent/agent.conf
     c="/etc/monasca-log-agent/agent.conf"
     #TODO(sjamgade): change these the following two ips to $IP
