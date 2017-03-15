@@ -48,7 +48,7 @@ with_gnocchi=no
 with_tempest=no
 
 # Setup Monasca
-with_monasca="yes"
+with_monasca=no
 # TODO(sjamgade):Remove this, once monsca is integrated in ci.
 MONASCA_HOST=
 

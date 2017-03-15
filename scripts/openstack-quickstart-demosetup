@@ -70,7 +70,7 @@ if [ "x$with_gnocchi" = "xyes" ]; then
 fi
 
 if [ "x$with_monasca" = "xyes" ]; then
-    install_packages monasca-log-agent
+    install_packages openstack-monasca-log-agent openstack-monasca-agent
 fi
 
 if [ "$DB" = "postgresql" ] ; then
@@ -807,8 +807,18 @@ if [ "x$with_monasca" = "xyes" ]; then
     sed -i "s:\(user_domain_name =>\).*:\1 \"Default\":" $c
     sed -i "s:\(project_domain_name =>\).*:\1 \"Default\":" $c
     sed -i "s:\(dimensions => \).*:\1 [ \"hostname\:monasca\" ]:" $c
+    start_and_enable_service  openstack-monasca-log-agent
 
-    start_and_enable_service  monasca-log-agent
+# monasca-log-agent
+    monasca-setup \
+    -u 'admin' \
+    -p '$pw' \
+    --skip_enable \
+    --user 'monasca-agent' \
+    --keystone_url "http://$IP:5000/v3/" \
+    --monasca_url "http://$MONASCA_HOST:8070/v3.0/"
+
+    start_and_enable_service  openstack-monasca-agent
 fi
 
 #-----------------------------------------
