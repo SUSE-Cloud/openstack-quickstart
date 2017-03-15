@@ -848,10 +848,15 @@ setup_keystone_authtoken $c monasca $ADMIN_PASSWORD
 crudini --set $c DEFAULT region RegionOne
 crudini --set $c database url "mysql+pymysql://monapi:$mpw@$IP/mon"
 
+### monasca-log-api
+c=/etc/monasca/log-api-config.conf
+mv /etc/apache2/vhosts.d/monasca-log-api.conf.sample /etc/apache2/vhosts.d/monasca-log-api.conf
+setup_keystone_authtoken $c monasca $ADMIN_PASSWORD
+crudini --set $c service region RegionOne
+
 start_and_enable_service apache2
 # may be needed if Horizon already started apache2
 service apache2 restart
-
 
 # monasca-log-agent
     cp /etc/monasca-log-agent/agent.conf.sample /etc/monasca-log-agent/agent.conf
