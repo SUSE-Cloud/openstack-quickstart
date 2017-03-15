@@ -71,6 +71,7 @@ fi
 
 if [ "x$with_monasca" = "xyes" ]; then
     install_packages openstack-monasca-log-agent openstack-monasca-agent \
+                     openstack-monasca-api \
                      elasticsearch \
                      influxdb \
                      kafka \
@@ -457,6 +458,9 @@ fi
 if [ "x$with_gnocchi" = "xyes" ]; then
     ENABLED_SERVICES+=",gnocchi-api,gnocchi-statsd,gnocchi-metricd"
 fi
+if [ "x$with_monasca" = "xyes" ]; then
+    ENABLED_SERVICES+=",monasca-api,monasca-log-api"
+fi
 
 SERVICE_ENDPOINT=$KEYSTONE_AUTH_PROTOCOL://$KEYSTONE_AUTH_HOST:$KEYSTONE_AUTH_PORT
 
@@ -814,6 +818,40 @@ start_and_enable_service influxdb
 start_and_enable_service mysql
 start_and_enable_service elasticsearch
 start_and_enable_service kibana
+
+# Keystone users, projects and roles
+get_or_create_project monasca
+
+get_or_create_user monasca-operator $pw
+get_or_create_user monasca-agent $pw
+get_or_create_user monasca-admin-agent $pw
+
+get_or_create_role monasca-user
+get_or_create_role monasca-agent
+get_or_create_role monasca-operator
+
+# Roles for monasca-operator user
+get_or_add_user_project_role monasca-user monasca-operator monasca
+get_or_add_user_project_role admin monasca-operator monasca
+
+# Roles for monasca-agent user
+get_or_add_user_project_role monasca-agent monasca-agent monasca
+
+# Monasca roles in admin project
+get_or_add_user_project_role monasca-user admin admin
+get_or_add_user_project_role monasca-admin-agent monasca-agent admin
+
+### monasca-api
+c=/etc/monasca/api-config.conf
+mv /etc/apache2/vhosts.d/monasca-api.conf.sample /etc/apache2/vhosts.d/monasca-api.conf
+setup_keystone_authtoken $c monasca $ADMIN_PASSWORD
+crudini --set $c DEFAULT region RegionOne
+crudini --set $c database url "mysql+pymysql://monapi:$mpw@$IP/mon"
+
+start_and_enable_service apache2
+# may be needed if Horizon already started apache2
+service apache2 restart
+
 
 # monasca-log-agent
     cp /etc/monasca-log-agent/agent.conf.sample /etc/monasca-log-agent/agent.conf
