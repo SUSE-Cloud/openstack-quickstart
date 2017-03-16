@@ -839,7 +839,7 @@ get_or_add_user_project_role monasca-agent monasca-agent monasca
 
 # Monasca roles in admin project
 get_or_add_user_project_role monasca-user admin admin
-get_or_add_user_project_role monasca-admin-agent monasca-agent admin
+get_or_add_user_project_role monasca-agent monasca-admin-agent admin
 
 ### monasca-api
 c=/etc/monasca/api-config.conf
