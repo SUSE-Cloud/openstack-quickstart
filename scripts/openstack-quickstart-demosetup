@@ -795,12 +795,12 @@ fi
 #-----------------------------------------
 
 if [ "x$with_monasca" = "xyes" ]; then
-# monasca-log-agent
+    # monasca-log-agent
     cp /etc/monasca-log-agent/agent.conf.sample /etc/monasca-log-agent/agent.conf
     c="/etc/monasca-log-agent/agent.conf"
     #TODO(sjamgade): change these the following two ips to $IP
     sed -i "s:\(monasca_log_api_url =>\).*:\1 \"http\://$MONASCA_HOST\:8070/v3.0\":" $c
-    sed -i "s:\(keystone_api_url =>\).*:\1 \"http\://$IP\:5000/v3/\":" $c
+    sed -i "s:\(keystone_api_url =>\).*:\1 \"$KEYSTONE_PUBLIC_ENDPOINT_V3\":" $c
     sed -i "s:\(project_name =>\).*:\1 \"admin\":" $c
     sed -i "s:\(username =>\).*:\1 \"admin\":" $c
     sed -i "s:\(password =>\).*:\1 \"$pw\":" $c
@@ -809,7 +809,7 @@ if [ "x$with_monasca" = "xyes" ]; then
     sed -i "s:\(dimensions => \).*:\1 [ \"hostname\:monasca\" ]:" $c
     start_and_enable_service  openstack-monasca-log-agent
 
-# monasca-log-agent
+    # monasca-agent
     monasca-setup \
     -u 'admin' \
     -p '$pw' \
@@ -817,7 +817,6 @@ if [ "x$with_monasca" = "xyes" ]; then
     --user 'monasca-agent' \
     --keystone_url "http://$IP:5000/v3/" \
     --monasca_url "http://$MONASCA_HOST:8070/v3.0/"
-
     start_and_enable_service  openstack-monasca-agent
 fi
 
