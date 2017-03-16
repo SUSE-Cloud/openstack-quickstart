@@ -71,7 +71,17 @@ fi
 
 if [ "x$with_monasca" = "xyes" ]; then
     install_packages openstack-monasca-log-agent openstack-monasca-agent \
+                     openstack-horizon-plugin-monasca-ui \
+                     openstack-monasca-agent \
                      openstack-monasca-api \
+                     openstack-monasca-log-agent \
+                     openstack-monasca-log-api \
+                     openstack-monasca-log-metrics \
+                     openstack-monasca-log-persister \
+                     openstack-monasca-log-transformer \
+                     openstack-monasca-notification \
+                     openstack-monasca-persister-java \
+                     openstack-monasca-thresh \
                      elasticsearch \
                      influxdb \
                      kafka \
