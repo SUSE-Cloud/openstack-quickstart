@@ -119,6 +119,11 @@ if [ "$DB" = "postgresql" ] ; then
         stop_and_disable_service $DB
     fi
 
+    if [ "x$with_monasca" = "xyes" ]; then
+        # Monasca needs MySQL either way
+        start_and_enable_service mysql
+    fi
+
     # increase max connections for multinode setup (this needs a restart)
     sed -i "s/^max_connections =.*/max_connections=1000/g" $DATADIR/postgresql.conf
 
@@ -168,9 +173,9 @@ if [ "$DB" = "postgresql" ] ; then
         sudo -u postgres createdb -O $DBNAME $DBNAME || true
     done
     sudo -u postgres createuser -s root || :
-else
-  echo | mysql -u root || pwquery=-p
+
   # Monasca needs MySQL either way, so create a MySQL database for its use
+  echo | mysql -u root || pwquery=-p
   echo "
   set global character_set_server=latin1;
   set session character_set_server=latin1;
