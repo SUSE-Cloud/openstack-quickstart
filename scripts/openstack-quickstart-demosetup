@@ -146,7 +146,7 @@ else
         set session character_set_server=latin1;
         CREATE DATABASE IF NOT EXISTS $DBNAME;
         GRANT ALL PRIVILEGES ON $DBNAME.* TO '$DBNAME'@localhost IDENTIFIED BY '$mpw';
-        GRANT ALL PRIVILEGES ON $DBNAME.* TO '$DBNAME'@'%' IDENTIFIED BY '$mpw';
+        GRANT ALL PRIVILEGES ON $DBNAME.* TO '$DBNAME'@'$(hostnamectl --static)' IDENTIFIED BY '$mpw';
         " | mysql -u root $pwquery
     done
 fi
@@ -181,7 +181,7 @@ if [ "$DB" = "postgresql" ] ; then
   set session character_set_server=latin1;
   CREATE DATABASE IF NOT EXISTS monasca;
   GRANT ALL PRIVILEGES ON monasca.* TO 'monasca'@localhost IDENTIFIED BY '$mpw';
-  GRANT ALL PRIVILEGES ON monasca.* TO 'monasca'@'%' IDENTIFIED BY '$mpw';
+  GRANT ALL PRIVILEGES ON monasca.* TO 'monasca'@'$(hostnamectl --static)' IDENTIFIED BY '$mpw';
   " | mysql -u root $pwquery
 fi
 
