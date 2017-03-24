@@ -460,9 +460,9 @@ if [[ "$ENABLED_SERVICES" =~ "monasca-api" ]]; then
     get_or_create_service "monasca" "monitoring" "OpenStack Monasca monitoring service"
     get_or_create_endpoint "monitoring" \
                            "RegionOne" \
-                           "$MONASCA_API_SERVICE_PROTOCOL://$MONASCA_API_SERVICE_HOST:$MONASCA_API_SERVICE_PORT" \
-                           "$MONASCA_API_SERVICE_PROTOCOL://$MONASCA_API_SERVICE_HOST:$MONASCA_API_SERVICE_PORT" \
-                           "$MONASCA_API_SERVICE_PROTOCOL://$MONASCA_API_SERVICE_HOST:$MONASCA_API_SERVICE_PORT"
+                           "$MONASCA_API_SERVICE_PROTOCOL://$MONASCA_API_SERVICE_HOST:${MONASCA_API_SERVICE_PORT}/v2.0" \
+                           "$MONASCA_API_SERVICE_PROTOCOL://$MONASCA_API_SERVICE_HOST:${MONASCA_API_SERVICE_PORT}/v2.0" \
+                           "$MONASCA_API_SERVICE_PROTOCOL://$MONASCA_API_SERVICE_HOST:${MONASCA_API_SERVICE_PORT}/v2.0"
 
     get_or_create_service "monasca-logs" "logs" "OpenStack Monasca logging service"
     get_or_create_endpoint "logs" \
