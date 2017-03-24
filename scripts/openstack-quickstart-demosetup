@@ -839,6 +839,9 @@ start_and_enable_service mysql
 start_and_enable_service elasticsearch
 start_and_enable_service kibana
 
+# Influxdb database
+echo 'create database mon' | influx
+
 # Keystone users, projects and roles
 get_or_create_project monasca
 
