@@ -350,6 +350,7 @@ crudini --set $c $cinder_backend_name volume_driver "cinder.volume.drivers.lvm.L
 crudini --set $c $cinder_backend_name volume_group "cinder-volumes"
 crudini --set $c $cinder_backend_name lvm_type "thin"
 crudini --set $c $cinder_backend_name iscsi_protocol "iscsi"
+crudini --set $c $cinder_backend_name rbd_flatten_volume_from_snapshot true
 
 
 if [ "x$with_tempest" = "xyes" ]; then
