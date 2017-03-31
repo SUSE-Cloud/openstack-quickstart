@@ -375,6 +375,15 @@ Listen 35357
     <Directory /usr/bin>
         Require all granted
     </Directory>
+    Alias /identity /usr/bin/keystone-wsgi-public
+    <Location /identity>
+        SetHandler wsgi-script
+        Options +ExecCGI
+
+        WSGIProcessGroup keystone-public
+        WSGIApplicationGroup %{GLOBAL}
+        WSGIPassAuthorization On
+    </Location>
 </VirtualHost>
 
 <VirtualHost *:35357>
@@ -391,27 +400,16 @@ Listen 35357
     <Directory /usr/bin>
         Require all granted
     </Directory>
+    Alias /identity_admin /usr/bin/keystone-wsgi-admin
+    <Location /identity_admin>
+        SetHandler wsgi-script
+        Options +ExecCGI
+
+        WSGIProcessGroup keystone-admin
+        WSGIApplicationGroup %{GLOBAL}
+        WSGIPassAuthorization On
+    </Location>
 </VirtualHost>
-
-Alias /identity /usr/bin/keystone-wsgi-public
-<Location /identity>
-    SetHandler wsgi-script
-    Options +ExecCGI
-
-    WSGIProcessGroup keystone-public
-    WSGIApplicationGroup %{GLOBAL}
-    WSGIPassAuthorization On
-</Location>
-
-Alias /identity_admin /usr/bin/keystone-wsgi-admin
-<Location /identity_admin>
-    SetHandler wsgi-script
-    Options +ExecCGI
-
-    WSGIProcessGroup keystone-admin
-    WSGIApplicationGroup %{GLOBAL}
-    WSGIPassAuthorization On
-</Location>
 EOF
 
 a2enmod wsgi
