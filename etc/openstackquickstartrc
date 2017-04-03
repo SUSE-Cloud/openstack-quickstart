@@ -47,6 +47,9 @@ with_gnocchi=no
 # Setup Tempest ?
 with_tempest=no
 
+# Setup Monasca
+with_monasca=no
+
 # Setup Nova Compute ?
 node_is_compute=yes
 
