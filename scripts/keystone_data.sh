@@ -194,9 +194,9 @@ if [[ "$ENABLED_SERVICES" =~ "n-cpu" ]]; then
     get_or_create_endpoint \
         "placement" \
         "RegionOne" \
-        "http://$SERVICE_HOST:8780/" \
-        "http://$SERVICE_HOST:8780/" \
-        "http://$SERVICE_HOST:8780/"
+        "http://$SERVICE_HOST:8778/" \
+        "http://$SERVICE_HOST:8778/" \
+        "http://$SERVICE_HOST:8778/"
 
 fi
 
