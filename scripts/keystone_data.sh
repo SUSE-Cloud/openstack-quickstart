@@ -458,3 +458,41 @@ if [[ "$ENABLED_SERVICES" =~ "gnocchi-api" ]]; then
                            "$GNOCCHI_SERVICE_PROTOCOL://$GNOCCHI_SERVICE_HOST:$GNOCCHI_SERVICE_PORT" \
                            "$GNOCCHI_SERVICE_PROTOCOL://$GNOCCHI_SERVICE_HOST:$GNOCCHI_SERVICE_PORT"
 fi
+
+# monasca
+if [[ "$ENABLED_SERVICES" =~ "monasca-api" ]]; then
+    MONASCA_API_SERVICE_PROTOCOL=http
+    MONASCA_API_SERVICE_PORT=8070
+    MONASCA_API_SERVICE_HOST=$SERVICE_HOST
+
+    MONASCA_LOG_API_SERVICE_PROTOCOL=http
+    MONASCA_LOG_API_SERVICE_PORT=5607
+    MONASCA_LOG_API_SERVICE_HOST=$SERVICE_HOST
+
+    MONASCA_KIBANA_SERVICE_PROTOCOL=http
+    MONASCA_KIBANA_SERVICE_PORT=5601
+    MONASCA_KIBANA_SERVICE_HOST=$SERVICE_HOST
+
+    create_service_user "monasca" "admin"
+
+    get_or_create_service "monasca" "monitoring" "OpenStack Monasca monitoring service"
+    get_or_create_endpoint "monitoring" \
+                           "RegionOne" \
+                           "$MONASCA_API_SERVICE_PROTOCOL://$MONASCA_API_SERVICE_HOST:${MONASCA_API_SERVICE_PORT}/v2.0" \
+                           "$MONASCA_API_SERVICE_PROTOCOL://$MONASCA_API_SERVICE_HOST:${MONASCA_API_SERVICE_PORT}/v2.0" \
+                           "$MONASCA_API_SERVICE_PROTOCOL://$MONASCA_API_SERVICE_HOST:${MONASCA_API_SERVICE_PORT}/v2.0"
+
+    get_or_create_service "monasca-logs" "logs" "OpenStack Monasca logging service"
+    get_or_create_endpoint "logs" \
+                           "RegionOne" \
+                           "$MONASCA_LOG_API_SERVICE_PROTOCOL://$MONASCA_LOG_API_SERVICE_HOST:$MONASCA_LOG_API_SERVICE_PORT" \
+                           "$MONASCA_LOG_API_SERVICE_PROTOCOL://$MONASCA_LOG_API_SERVICE_HOST:$MONASCA_LOG_API_SERVICE_PORT" \
+                           "$MONASCA_LOG_API_SERVICE_PROTOCOL://$MONASCA_LOG_API_SERVICE_HOST:$MONASCA_LOG_API_SERVICE_PORT"
+
+    get_or_create_service "monasca-logs-search" "logs-search" "OpenStack Monasca log searching service"
+    get_or_create_endpoint "logs" \
+                           "RegionOne" \
+                           "$MONASCA_KIBANA_SERVICE_PROTOCOL://$MONASCA_KIBANA_SERVICE_HOST:$MONASCA_KIBANA_SERVICE_PORT" \
+                           "$MONASCA_KIBANA_SERVICE_PROTOCOL://$MONASCA_KIBANA_SERVICE_HOST:$MONASCA_KIBANA_SERVICE_PORT" \
+                           "$MONASCA_KIBANA_SERVICE_PROTOCOL://$MONASCA_KIBANA_SERVICE_HOST:$MONASCA_KIBANA_SERVICE_PORT"
+fi
