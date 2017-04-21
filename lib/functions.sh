@@ -157,6 +157,7 @@ function setup_node_for_nova_compute() {
     fi
 
     start_and_enable_service libvirtd
+    start_and_enable_service virtlogd
 }
 
 function setup_nova_compute() {
