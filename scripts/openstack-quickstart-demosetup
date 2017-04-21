@@ -1024,6 +1024,18 @@ EOF
         ansible-playbook -i monasca-hosts monasca.yml
     )
 
+    # do the agent setup
+    monasca-setup \
+        -u "admin" \
+        -p "$pw" \
+        --skip_enable \
+        --log_dir "/var/log/monasca-agent/" \
+        --project_name admin \
+        --user "monasca-agent" \
+        --keystone_url "http://$IP:5000/v3/" \
+        --monasca_url "http://$IP:8070/v3.0/"
+
+    start_and_enable_service  openstack-monasca-agent
 fi
 
 #-----------------------------------------
