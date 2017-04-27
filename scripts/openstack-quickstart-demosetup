@@ -357,9 +357,6 @@ crudini --set $c neutron service_metadata_proxy True
 crudini --set $c neutron metadata_proxy_shared_secret $metadata_secret
 crudini --set $c keymgr fixed_key "$FIXED_KEY"
 
-# placement api
-install -m 644 /etc/apache2/vhosts.d/nova-placement-api.conf{.sample,}
-
 start_and_enable_service apache2
 # may be needed if Horizon already started apache2
 service apache2 restart
