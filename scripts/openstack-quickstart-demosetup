@@ -726,11 +726,13 @@ else
 fi
 
 setcreds admin $pw
-for tenant in admin demo ; do
-    nova --os-tenant-name $tenant secgroup-add-rule default icmp -1 -1 0.0.0.0/0 # to allow ping
-    nova --os-tenant-name $tenant secgroup-add-rule default tcp 22 22 0.0.0.0/0 # to allow only SSH or do
-    nova --os-tenant-name $tenant secgroup-add-rule default tcp 1 65535 0.0.0.0/0 # to allow all TCP
-    nova --os-tenant-name $tenant secgroup-add-rule default udp 1 65535 0.0.0.0/0 # and all UDP
+security_group_id_admin=`openstack security group list --project admin -f value -c ID`
+security_group_id_demo=`openstack security group list --project demo -f value -c ID`
+for sec_group_id in $security_group_id_admin $security_group_id_demo; do
+    openstack security group rule create --protocol icmp $sec_group_id
+    openstack security group rule create --protocol tcp --dst-port 22:22 --remote-ip 0.0.0.0/0 $sec_group_id
+    openstack security group rule create --protocol tcp --dst-port 1:65535 --remote-ip 0.0.0.0/0 $sec_group_id
+    openstack security group rule create --protocol udp --dst-port 1:65535 --remote-ip 0.0.0.0/0 $sec_group_id
 done
 
 #-----------------------------------------
