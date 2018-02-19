@@ -21,13 +21,12 @@ function run_as () {
 }
 
 function get_router_id () {
-    eval `neutron router-show -f shell -F id public`
+    local id=`openstack router show -f value -c id public`
     echo $id
 }
 
 function get_service_tenant_id () {
-    id=`openstack project show service -c id -f value`
-
+    local id=`openstack project show service -c id -f value`
     echo $id
 }
 
@@ -72,27 +71,23 @@ function stop_and_disable_service () {
 }
 
 function get_ext_bridge_name () {
-    local id
-    eval `neutron net-show -f shell -F id ext`
+    local id=`openstack network show -f value -c id ext`
     echo "brq"${id:0:11}
 }
 
 
 function get_ext_bridge_ip () {
-    local gateway_ip
-    eval `neutron subnet-show -f shell -F gateway_ip ext`
+    local gateway_ip=`openstack subnet show -f value -c gateway_ip ext`
     echo $gateway_ip
 }
 
 function get_ext_bridge_ip_prefix () {
-    local cidr
-    eval `neutron subnet-show -f shell -F cidr ext`
+    local cidr=`openstack subnet show -f value -c cidr ext`
     echo $cidr | cut -f2 -d/
 }
 
 function get_ext_bridge_cidr () {
-    local cidr
-    eval `neutron subnet-show -f shell -F cidr ext`
+    local cidr=`openstack subnet show -f value -c cidr ext`
     echo $cidr
 }
 

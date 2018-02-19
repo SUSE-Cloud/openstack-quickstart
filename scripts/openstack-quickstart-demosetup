@@ -593,43 +593,42 @@ fi
 
 ### create subnets
 ## fixed
-if ! neutron net-show fixed; then
-    neutron net-create fixed --tenant-id $SERVICE_TENANT_ID --shared --provider:network_type vlan \
-            --provider:segmentation_id $FIXED_VLAN  --provider:physical_network physnet1
+if ! openstack network show fixed; then
+    openstack network create --project $SERVICE_TENANT_ID --share --provider-network-type vlan \
+              --provider-segment $FIXED_VLAN --provider-physical-network physnet1 fixed
 fi
 
-if ! neutron subnet-show fixed; then
-    neutron subnet-create --name fixed --dns-nameserver 8.8.8.8 --dns-nameserver 8.8.4.4 fixed $testnet
+if ! openstack subnet show fixed; then
+    openstack subnet create --dns-nameserver 8.8.8.8 --dns-nameserver 8.8.4.4 --subnet-range $testnet --network fixed fixed
 fi
 
-if ! neutron router-show public; then
-    neutron router-create --tenant-id $SERVICE_TENANT_ID public
-    neutron router-interface-add public fixed
+if ! openstack router show public; then
+    openstack router create --project $SERVICE_TENANT_ID public
+    openstack router add subnet public fixed
 fi
 
 ## floating/external
-if ! neutron net-show ext ; then
+if ! openstack network show ext ; then
     if [ x$FLOATING_VLAN != x ]; then
-        neutron net-create ext --tenant-id $SERVICE_TENANT_ID --provider:network_type vlan \
-                --router:external --provider:segmentation_id $FLOATING_VLAN --provider:physical_network physnet1
+        openstack network create --project $SERVICE_TENANT_ID --provider-network-type vlan \
+                  --external --provider-segment $FLOATING_VLAN --provider-physical-network physnet1 ext
     else
-        neutron net-create ext --tenant-id $SERVICE_TENANT_ID --provider:network_type local --router:external
+        openstack network create --project $SERVICE_TENANT_ID --provider-network-type local --external ext
     fi
 fi
 
-if ! neutron subnet-show ext; then
+if ! openstack subnet show ext; then
+    ext_network_id=$(openstack network show ext -c id -f value)
     if [ x$FLOATING_VLAN != x ]; then
-        ext_network_id=$(neutron net-list | grep ' ext '  | cut -d' ' -f2)
-        neutron subnet-create --name ext --disable-dhcp --tenant-id $SERVICE_TENANT_ID $floatingpool $floatinggateway ext $floatingnet
+        openstack subnet create --project $SERVICE_TENANT_ID --no-dhcp --subnet-range $floatingnet --network ext ext
     else
-        ext_network_id=$(neutron net-list | grep ' ext '  | cut -d' ' -f2)
-        neutron subnet-create --name ext --disable-dhcp --tenant-id $SERVICE_TENANT_ID ext $floatingnet
+        openstack subnet create --project $SERVICE_TENANT_ID --no-dhcp --subnet-range $floatingnet --network ext ext
     fi
 fi
-neutron router-gateway-set public ext
+openstack router set --external-gateway ext public
 # create four floatingip pools
 for i in 1 2 3 4; do
-neutron floatingip-create ext
+    openstack floating ip create ext
 done
 ### create routing configuration for external bridge
 ext_bridge_name=`get_ext_bridge_name`
