@@ -209,11 +209,10 @@ function setup_keystone_authtoken() {
     crudini --set $conf $section auth_type password
     crudini --set $conf $section username $admin_user
     crudini --set $conf $section password $admin_password
-    crudini --set $conf $section user_domain_id default
+    crudini --set $conf $section user_domain_name Default
     crudini --set $conf $section project_name service
-    crudini --set $conf $section project_domain_id default
-    crudini --set $conf $section auth_url http://$IP:35357/
-    crudini --set $conf $section auth_uri http://$IP:5000/
+    crudini --set $conf $section project_domain_name Default
+    crudini --set $conf $section auth_url http://$IP:5000/
     #crudini --set $conf $section signing_dir $signing_dir
 }
 
