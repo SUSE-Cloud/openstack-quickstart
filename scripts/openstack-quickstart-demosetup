@@ -1084,7 +1084,7 @@ if [ "x$with_tempest" = "xyes" -a -e /etc/tempest/tempest.conf ]; then
     crudini --set /etc/tempest/tempest.conf auth admin_username admin
     crudini --set /etc/tempest/tempest.conf identity uri $KEYSTONE_PUBLIC_ENDPOINT
     crudini --set /etc/tempest/tempest.conf identity uri_v3 $KEYSTONE_PUBLIC_ENDPOINT_V3
-    crudini --set /etc/tempest/tempest.conf identity auth_version v2
+    crudini --set /etc/tempest/tempest.conf identity auth_version v3
     crudini --set /etc/tempest/tempest.conf identity username demo
     crudini --set /etc/tempest/tempest.conf identity tenant_name demo
     crudini --set /etc/tempest/tempest.conf identity alt_password $pw
