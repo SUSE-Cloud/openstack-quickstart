@@ -27,7 +27,7 @@ function create_service_user {
 
 # create_keystone_accounts() - Sets up common required keystone accounts
 
-# Tenant               User       Roles
+# Project              User       Roles
 # ------------------------------------------------------------------
 # admin                admin      admin
 # service              --         --
@@ -40,10 +40,11 @@ function create_service_user {
 # alt_demo             alt_demo   Member, anotherrole
 # invisible_to_admin   demo       Member
 
-# Group                Users            Roles                 Tenant
+# Group                Users            Roles                 Project
 # ------------------------------------------------------------------
 # admins               admin            admin                 admin
 # nonadmins            demo, alt_demo   Member, anotherrole   demo, alt_demo
+
 
 # Migrated from keystone_data.sh
 function create_keystone_accounts {
@@ -51,62 +52,69 @@ function create_keystone_accounts {
     # The keystone bootstrapping process (performed via keystone-manage bootstrap)
     # creates an admin user, admin role and admin project. As a sanity check
     # we exercise the CLI to retrieve the IDs for these values.
-    local admin_tenant
-    admin_tenant=$(openstack project show "admin" -f value -c id)
+    local admin_project
+    admin_project=$(openstack project show "admin" -f value -c id)
     local admin_user
     admin_user=$(openstack user show "admin" -f value -c id)
-    local admin_role
-    admin_role=$(openstack role show "admin" -f value -c id)
+    local admin_role="admin"
 
     get_or_add_user_domain_role $admin_role $admin_user default
 
     # Create service project/role
-    get_or_create_project "$SERVICE_PROJECT_NAME" default
+    get_or_create_domain "$SERVICE_DOMAIN_NAME"
+    get_or_create_project "$SERVICE_PROJECT_NAME" "$SERVICE_DOMAIN_NAME"
 
     # Service role, so service users do not have to be admins
     get_or_create_role service
 
     # The ResellerAdmin role is used by Nova and Ceilometer so we need to keep it.
-    # The admin role in swift allows a user to act as an admin for their tenant,
-    # but ResellerAdmin is needed for a user to act as any tenant. The name of this
+    # The admin role in swift allows a user to act as an admin for their project,
+    # but ResellerAdmin is needed for a user to act as any project. The name of this
     # role is also configurable in swift-proxy.conf
     get_or_create_role ResellerAdmin
 
     # The Member role is used by Horizon and Swift so we need to keep it:
-    local member_role
-    member_role=$(get_or_create_role "Member")
+    local member_role="member"
+
+    # Capital Member role is legacy hard coded in Horizon / Swift
+    # configs. Keep it around.
+    get_or_create_role "Member"
+
+    # The reality is that the rest of the roles listed below honestly
+    # should work by symbolic names.
+    get_or_create_role $member_role
 
     # another_role demonstrates that an arbitrary role may be created and used
     # TODO(sleepsonthefloor): show how this can be used for rbac in the future!
-    local another_role
-    another_role=$(get_or_create_role "anotherrole")
+    local another_role="anotherrole"
+    get_or_create_role $another_role
 
-    # invisible tenant - admin can't see this one
-    local invis_tenant
-    invis_tenant=$(get_or_create_project "invisible_to_admin" default)
+    # invisible project - admin can't see this one
+    local invis_project
+    invis_project=$(get_or_create_project "invisible_to_admin" default)
 
     # demo
-    local demo_tenant
-    demo_tenant=$(get_or_create_project "demo" default)
+    local demo_project
+    demo_project=$(get_or_create_project "demo" default)
     local demo_user
     demo_user=$(get_or_create_user "demo" \
         "$ADMIN_PASSWORD" "default" "demo@example.com")
 
-    get_or_add_user_project_role $member_role $demo_user $demo_tenant
-    get_or_add_user_project_role $admin_role $admin_user $demo_tenant
-    get_or_add_user_project_role $another_role $demo_user $demo_tenant
-    get_or_add_user_project_role $member_role $demo_user $invis_tenant
+    get_or_add_user_project_role $member_role $demo_user $demo_project
+    get_or_add_user_project_role $admin_role $admin_user $demo_project
+    get_or_add_user_project_role $another_role $demo_user $demo_project
+    get_or_add_user_project_role $member_role $demo_user $invis_project
 
     # alt_demo
-    local alt_demo_tenant
-    alt_demo_tenant=$(get_or_create_project "alt_demo" default)
+    local alt_demo_project
+    alt_demo_project=$(get_or_create_project "alt_demo" default)
     local alt_demo_user
     alt_demo_user=$(get_or_create_user "alt_demo" \
         "$ADMIN_PASSWORD" "default" "alt_demo@example.com")
 
-    get_or_add_user_project_role $member_role $alt_demo_user $alt_demo_tenant
-    get_or_add_user_project_role $admin_role $admin_user $alt_demo_tenant
-    get_or_add_user_project_role $another_role $alt_demo_user $alt_demo_tenant
+    get_or_add_user_project_role $member_role $alt_demo_user $alt_demo_project
+    get_or_add_user_project_role $admin_role $admin_user $alt_demo_project
+    get_or_add_user_project_role $another_role $alt_demo_user $alt_demo_project
 
     # groups
     local admin_group
@@ -116,11 +124,11 @@ function create_keystone_accounts {
     non_admin_group=$(get_or_create_group "nonadmins" \
         "default" "non-admin group")
 
-    get_or_add_group_project_role $member_role $non_admin_group $demo_tenant
-    get_or_add_group_project_role $another_role $non_admin_group $demo_tenant
-    get_or_add_group_project_role $member_role $non_admin_group $alt_demo_tenant
-    get_or_add_group_project_role $another_role $non_admin_group $alt_demo_tenant
-    get_or_add_group_project_role $admin_role $admin_group $admin_tenant
+    get_or_add_group_project_role $member_role $non_admin_group $demo_project
+    get_or_add_group_project_role $another_role $non_admin_group $demo_project
+    get_or_add_group_project_role $member_role $non_admin_group $alt_demo_project
+    get_or_add_group_project_role $another_role $non_admin_group $alt_demo_project
+    get_or_add_group_project_role $admin_role $admin_group $admin_project
 }
 
 #################################################
@@ -134,6 +142,7 @@ SERVICE_PASSWORD=${SERVICE_PASSWORD:-$ADMIN_PASSWORD}
 SERVICE_ENDPOINT=$SERVICE_ENDPOINT
 SERVICE_TENANT_NAME=${SERVICE_TENANT_NAME:-service}
 SERVICE_PROJECT_NAME=${SERVICE_TENANT_NAME:-service}
+SERVICE_DOMAIN_NAME=${SERVICE_DOMAIN_NAME:-Default}
 
 # setup fernet tokens
 keystone-manage fernet_setup \
