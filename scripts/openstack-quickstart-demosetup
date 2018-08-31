@@ -342,9 +342,11 @@ crudini --set $c glance api_servers "http://$IP:9292"
 crudini --set $c DEFAULT connection_type libvirt
 crudini --set $c DEFAULT compute_driver libvirt.LibvirtDriver
 crudini --set $c DEFAULT service_neutron_metadata_proxy True
+crudini --set $c DEFAULT mkisofs_cmd /usr/bin/mkisofs
+# deprecated
 crudini --set $c DEFAULT use_neutron True
-crudini --set $c DEFAULT novncproxy_base_url "http://$IP:6080/vnc_auto.html"
-crudini --set $c DEFAULT default_floating_pool ext
+crudini --set $c vnc novncproxy_base_url "http://$IP:6080/vnc_auto.html"
+crudini --set $c neutron default_floating_pool ext
 crudini --set $c DEFAULT my_ip "$IP"
 crudini --set $c DEFAULT osapi_compute_workers "1"
 crudini --set $c DEFAULT ec2_workers "1"
@@ -355,7 +357,7 @@ crudini --set $c placement os_region_name "RegionOne"
 metadata_secret=$(echo $ADMIN_PASSWORD | md5sum | cut -d" " -f1)
 crudini --set $c neutron service_metadata_proxy True
 crudini --set $c neutron metadata_proxy_shared_secret $metadata_secret
-crudini --set $c keymgr fixed_key "$FIXED_KEY"
+crudini --set $c key_manager fixed_key "$FIXED_KEY"
 
 # placement api
 install -m 644 /etc/apache2/vhosts.d/nova-placement-api.conf{.sample,}
@@ -663,6 +665,12 @@ nova-manage db online_data_migrations
 nova-manage cell_v2 simple_cell_setup --transport-url rabbit://openstack:$pw@$IP
 nova-manage cell_v2 discover_hosts --verbose
 
+### Figure out why this  restart is needed ??!
+# 2018-08-30: without the compute node is not registered properly
+for s in openstack-nova-conductor openstack-nova-scheduler; do
+    systemctl restart $s
+done
+
 if [ "x$with_tempest" = "xyes" ]; then
     start_and_enable_service openstack-ec2-api-s3
 fi
@@ -689,7 +697,7 @@ HEAT_DOMAIN_ID=$(get_or_create_domain heat 'Owns users and projects created by h
 get_or_create_user heat_domain_admin $ADMIN_PASSWORD $HEAT_DOMAIN_ID
 get_or_add_user_domain_role admin heat_domain_admin $HEAT_DOMAIN_ID
 
-crudini --set $c DEFAULT stack_user_domain $HEAT_DOMAIN_ID
+crudini --set $c DEFAULT stack_user_domain_id $HEAT_DOMAIN_ID
 crudini --set $c DEFAULT stack_domain_admin heat_domain_admin
 crudini --set $c DEFAULT stack_domain_admin_password $ADMIN_PASSWORD
 
