@@ -50,6 +50,9 @@ with_tempest=no
 # Setup Monasca
 with_monasca=no
 
+# Setup Watcher
+with_watcher=yes
+
 # Setup Nova Compute ?
 node_is_compute=yes
 
