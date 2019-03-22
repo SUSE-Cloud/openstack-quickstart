@@ -551,9 +551,15 @@ crudini --set $c_l3a DEFAULT interface_driver neutron.agent.linux.interface.Brid
 crudini --set /etc/neutron/metadata_agent.ini DEFAULT metadata_proxy_shared_secret $metadata_secret
 
 if [ "x$with_tempest" = "xyes" ]; then
-    crudini --set $c DEFAULT service_plugins "neutron_lbaas.services.loadbalancer.plugin.LoadBalancerPluginv2, neutron.services.l3_router.l3_router_plugin.L3RouterPlugin, neutron.services.vpn.plugin.VPNDriverPlugin, neutron.services.metering.metering_plugin.MeteringPlugin"
+    crudini --set $c DEFAULT service_plugins "neutron_lbaas.services.loadbalancer.plugin.LoadBalancerPluginv2, neutron.services.l3_router.l3_router_plugin.L3RouterPlugin, neutron.services.vpn.plugin.VPNDriverPlugin, neutron.services.metering.metering_plugin.MeteringPlugin, neutron_fwaas.services.firewall.fwaas_plugin.FirewallPlugin"
     # configure Neutron Lbaas v2 service
     crudini --set /etc/neutron/neutron_lbaas.conf service_providers service_provider "LOADBALANCERV2:Haproxy:neutron_lbaas.drivers.haproxy.plugin_driver.HaproxyOnHostPluginDriver:default"
+    # configure Neutron FWaaS v1
+    crudini --set /etc/neutron/fwaas_driver.ini service_providers service_provider "FIREWALL:Iptables:neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver:default"
+    crudini --set $c_l3a AGENT extensions "fwaas"
+    crudini --set $c_l3a fwaas agent_version "v1"
+    crudini --set $c_l3a fwaas driver "iptables"
+    crudini --set $c_l3a fwaas enabled "True"
 fi
 
 # the default systemd socket activation only listens on the loopback interface
