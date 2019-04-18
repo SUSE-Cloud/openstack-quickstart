@@ -25,9 +25,25 @@ fi
 if [ "x$with_tempest" = "xyes" ]; then
     install_packages openstack-ec2-api-s3 openstack-neutron-lbaas-agent \
         openstack-neutron-vpnaas openstack-neutron-fwaas \
+        python-keystone-tempest-plugin \
+        python-heat-tempest-plugin \
+        python-neutron-tempest-plugin \
         openstack-neutron-fwaas-test openstack-tempest-test
+
+    if [ "x$with_barbican" = "xyes" ]; then
+        install_packages python-barbican-tempest-plugin
+    fi
+
+    if [ "x$with_designate" = "xyes" ]; then
+        install_packages python-designate-tempest-plugin
+    fi
+
     if [ "x$with_manila" = "xyes" ]; then
-        install_packages  openstack-manila-test
+        install_packages  openstack-manila-test python-manila-tempest-plugin
+    fi
+
+    if [ "x$with_magnum" = "xyes" ]; then
+        install_packages python-manila-tempest-plugin
     fi
 fi
 
