@@ -35,7 +35,9 @@ if [ "x$with_tempest" = "xyes" ]; then
     fi
 
     if [ "x$with_designate" = "xyes" ]; then
-        install_packages python-designate-tempest-plugin
+        ### Designate needs to be configured first
+        #install_packages python-designate-tempest-plugin
+        true
     fi
 
     if [ "x$with_manila" = "xyes" ]; then
