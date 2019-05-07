@@ -10,27 +10,25 @@ KEYSTONE_AUTH_PROTOCOL=${KEYSTONE_AUTH_PROTOCOL:-http}
 KEYSTONE_PUBLIC_ENDPOINT=$KEYSTONE_AUTH_PROTOCOL://$KEYSTONE_AUTH_HOST:$KEYSTONE_SERVICE_PORT/v2.0
 KEYSTONE_PUBLIC_ENDPOINT_V3=$KEYSTONE_AUTH_PROTOCOL://$KEYSTONE_AUTH_HOST:$KEYSTONE_SERVICE_PORT/v3
 
-function install_packages () {
+function install_packages {
     test $# -gt 0 || return
     rpm -q $* > /dev/null || zypper -n in $* || exit 1
 }
 
-function run_as () {
+function run_as {
     test $# -eq 2 || (echo "Bad usage of run_as function. Arguments: $*"; exit 1)
     su - $1 -s /bin/bash -c "$2"
 }
 
-function get_router_id () {
-    local id=`openstack router show -f value -c id public`
-    echo $id
+function get_router_id {
+    openstack router show -f value -c id public
 }
 
-function get_service_tenant_id () {
-    local id=`openstack project show service -c id -f value`
-    echo $id
+function get_service_tenant_id {
+    openstack project show service -c id -f value
 }
 
-function start_and_enable_service () {
+function start_and_enable_service {
     i=/etc/init.d/$1
     if [ -x $i ] ; then
         insserv $1
@@ -42,7 +40,7 @@ function start_and_enable_service () {
         fi
     elif [ -n "$(type -p systemctl)" ]; then
         s=${1}.service
-        if [ $(systemctl cat $s 2>/dev/null| wc -l) -gt 0 ]; then
+        if [[ $(systemctl cat $s 2>/dev/null| wc -l) -gt 0 ]]; then
             systemctl enable $s
             systemctl start $s
             systemctl is-active --quiet $s
@@ -56,13 +54,13 @@ function start_and_enable_service () {
     fi
 }
 
-function stop_and_disable_service () {
+function stop_and_disable_service {
     i=/etc/init.d/$1
     if [ -x $i ] ; then
         $i stop
     elif [ -n "$(type -p systemctl)" ]; then
         s=${1}.service
-        if [ $(systemctl cat $s 2>/dev/null| wc -l) -gt 0 ]; then
+        if [[ $(systemctl cat $s 2>/dev/null| wc -l) -gt 0 ]]; then
             systemctl stop $s || :
             systemctl disable $s || :
         fi
@@ -70,28 +68,30 @@ function stop_and_disable_service () {
     chkconfig -d $1
 }
 
-function get_ext_bridge_name () {
-    local id=`openstack network show -f value -c id ext`
+function get_ext_bridge_name {
+    local id
+    id=`openstack network show -f value -c id ext`
     echo "brq"${id:0:11}
 }
 
 
-function get_ext_bridge_ip () {
-    local gateway_ip=`openstack subnet show -f value -c gateway_ip ext`
+function get_ext_bridge_ip {
+    local gateway_ip
+    gateway_ip=`openstack subnet show -f value -c gateway_ip ext`
     echo $gateway_ip
 }
 
-function get_ext_bridge_ip_prefix () {
-    local cidr=`openstack subnet show -f value -c cidr ext`
+function get_ext_bridge_ip_prefix {
+    local cidr
+    cidr=`openstack subnet show -f value -c cidr ext`
     echo $cidr | cut -f2 -d/
 }
 
-function get_ext_bridge_cidr () {
-    local cidr=`openstack subnet show -f value -c cidr ext`
-    echo $cidr
+function get_ext_bridge_cidr {
+    openstack subnet show -f value -c cidr ext
 }
 
-function setup_ext_bridge_on_boot () {
+function setup_ext_bridge_on_boot {
     local eth
 
     eth=$FLOATING_ETH
@@ -114,7 +114,7 @@ EOF
 }
 
 
-function setup_node_for_nova_compute() {
+function setup_node_for_nova_compute {
     # change libvirt to run qemu as user qemu
     sed -i -e 's;.*user.*=.*;user = "qemu";' /etc/libvirt/qemu.conf
     if [ -e /dev/kvm ]; then
@@ -154,7 +154,7 @@ function setup_node_for_nova_compute() {
     start_and_enable_service libvirtd
 }
 
-function setup_nova_compute() {
+function setup_nova_compute {
     local c=/etc/nova/nova.conf.d/100-nova.conf
     crudini --set $c DEFAULT linuxnet_interface_driver ""
     crudini --set $c DEFAULT firewall_driver nova.virt.firewall.NoopFirewallDriver
@@ -166,8 +166,7 @@ function setup_nova_compute() {
     fi
 }
 
-
-function disable_firewall_and_enable_forwarding() {
+function disable_firewall_and_enable_forwarding {
 
     # disable firewall before playing with ip_forward stuff
     rm -f /usr/lib/python*/site-packages/nova-iptables.lock.lock # workaround bug
@@ -190,7 +189,7 @@ EOF
     sysctl -p /etc/sysctl.d/90-openstack-quickstart.conf
 }
 
-function setup_messaging_client() {
+function setup_messaging_client {
     local conf=$1
     local ip=$2
     local pw=$3
@@ -200,7 +199,7 @@ function setup_messaging_client() {
 }
 
 # see also devstack/keystone configure_auth_token_middleware()
-function setup_keystone_authtoken() {
+function setup_keystone_authtoken {
     local conf=$1
     local admin_user=$2
     local admin_password=$3

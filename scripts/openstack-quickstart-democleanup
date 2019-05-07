@@ -7,20 +7,20 @@ nova list| perl -ne 'if(/^\| (\S+) /){print "$1\n"}' |xargs -l nova delete
 nova image-list| perl -ne 'if(/^\| (\S+) /){print "$1\n"}' | xargs -l nova image-delete
 
 for i in /etc/init.d/{openstack-*,rabbitmq-server,memcached,libvirtd} ; do
-	$i stop
-	insserv -r $i
+    $i stop
+    insserv -r $i
 done
 killall postmaster
 /etc/init.d/postgresql restart
 cd /
 for n in nova keystone glance horizon ; do
-	sudo -u postgres dropdb $n
-	sudo -u postgres dropuser $n
+    sudo -u postgres dropdb $n
+    sudo -u postgres dropuser $n
     which mysql &> /dev/null && echo "drop database $n;" | mysql
 done
 
 for m in /var/lib/nova/instances/*/rootfs ; do
-	umount $m # for LXC
+    umount $m # for LXC
 done
 killall qemu-nbd 2>/dev/null # for LXC
 
