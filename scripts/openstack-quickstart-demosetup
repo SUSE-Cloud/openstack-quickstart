@@ -159,7 +159,8 @@ if [ "$DB" = "postgresql" ] ; then
     fi
 else
     echo | mysql -u root || pwquery=-p
-    for DBNAME in nova cinder keystone glance horizon monasca neutron manila barbican sahara designate gnocchi; do
+    for DBNAME in nova cinder keystone glance horizon monasca placement \
+            neutron manila barbican sahara designate gnocchi; do
         echo "
         set global character_set_server=latin1;
         set session character_set_server=latin1;
@@ -184,7 +185,7 @@ if [ "$DB" = "postgresql" ] ; then
     sudo -u postgres dropdb keystone || true # needed for keystone_data.sh
     for DBNAME in nova nova_api nova_cell0 cinder keystone glance horizon heat \
             neutron manila magnum barbican sahara designate \
-            gnocchi ; do
+            gnocchi placement ; do
         # use ALTER if CREATE fails: the role probably already exists
         # in that case
         sudo -u postgres psql -c "CREATE ROLE $DBNAME PASSWORD '$mpw' LOGIN;" || \
@@ -300,6 +301,7 @@ setup_keystone_authtoken /etc/heat/heat.conf.d/100-heat.conf heat $ADMIN_PASSWOR
 setup_keystone_authtoken /etc/nova/nova.conf.d/100-nova.conf nova $ADMIN_PASSWORD
 setup_keystone_authtoken /etc/nova/nova.conf.d/100-nova.conf neutron $ADMIN_PASSWORD neutron
 setup_keystone_authtoken /etc/nova/nova.conf.d/100-nova.conf placement $ADMIN_PASSWORD placement
+setup_keystone_authtoken /etc/placement/placement.conf.d/100-placement.conf placement $ADMIN_PASSWORD
 
 if [ "x$with_manila" = "xyes" ]; then
     setup_keystone_authtoken /etc/manila/manila.conf.d/100-manila.conf manila $ADMIN_PASSWORD
@@ -377,12 +379,17 @@ crudini --set $c neutron metadata_proxy_shared_secret $metadata_secret
 crudini --set $c key_manager fixed_key "$FIXED_KEY"
 
 # placement api
-install -m 644 /etc/apache2/vhosts.d/nova-placement-api.conf{.sample,}
+install -m 644 /etc/apache2/vhosts.d/openstack-placement-api.conf{.sample,}
+
+c=/etc/placement/placement.conf.d/100-placement.conf
+crudini --set $c placement_database connection "$DB://placement:$mpw@$IP/placement"
+
+# Set up database
+placement-manage db sync
 
 start_and_enable_service apache2
 # may be needed if Horizon already started apache2
 service apache2 restart
-
 
 setup_nova_compute
 
