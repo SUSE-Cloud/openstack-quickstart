@@ -35,7 +35,9 @@ if [ "x$with_tempest" = "xyes" ]; then
     fi
 
     if [ "x$with_designate" = "xyes" ]; then
-        install_packages python-designate-tempest-plugin
+        ### Designate needs to be configured first
+        #install_packages python-designate-tempest-plugin
+        true
     fi
 
     if [ "x$with_manila" = "xyes" ]; then
@@ -61,15 +63,15 @@ fi
 
 if [ "x$with_barbican" = "xyes" ]; then
     install_packages openstack-barbican openstack-barbican-api\
-		     openstack-barbican-keystone-listener \
-		     openstack-barbican-worker openstack-barbican-retry \
-		     python-barbican python-barbicanclient
+        openstack-barbican-keystone-listener \
+        openstack-barbican-worker openstack-barbican-retry \
+        python-barbican python-barbicanclient
 fi
 
 if [ "x$with_sahara" = "xyes" ]; then
     install_packages openstack-sahara openstack-sahara-api\
-		     openstack-sahara-engine \
-		     python-saharaclient
+        openstack-sahara-engine \
+        python-saharaclient
 fi
 
 if [ "x$with_designate" = "xyes" ]; then
@@ -170,8 +172,7 @@ fi
 
 
 # start some initial services
-for s in ntp ntpd $DB tgtd memcached
-do
+for s in ntp ntpd $DB tgtd memcached ; do
     start_and_enable_service $s
 done
 
@@ -182,8 +183,8 @@ start_and_enable_service iscsid
 if [ "$DB" = "postgresql" ] ; then
     sudo -u postgres dropdb keystone || true # needed for keystone_data.sh
     for DBNAME in nova nova_api nova_cell0 cinder keystone glance horizon heat \
-                       neutron manila magnum barbican sahara designate \
-                       gnocchi ; do
+            neutron manila magnum barbican sahara designate \
+            gnocchi ; do
         # use ALTER if CREATE fails: the role probably already exists
         # in that case
         sudo -u postgres psql -c "CREATE ROLE $DBNAME PASSWORD '$mpw' LOGIN;" || \
@@ -192,15 +193,15 @@ if [ "$DB" = "postgresql" ] ; then
     done
     sudo -u postgres createuser -s root || :
 
-  # Monasca needs MySQL either way, so create a MySQL database for its use
-  echo | mysql -u root || pwquery=-p
-  echo "
-  set global character_set_server=latin1;
-  set session character_set_server=latin1;
-  CREATE DATABASE IF NOT EXISTS monasca;
-  GRANT ALL PRIVILEGES ON monasca.* TO 'monasca'@localhost IDENTIFIED BY '$mpw';
-  GRANT ALL PRIVILEGES ON monasca.* TO 'monasca'@'$(hostnamectl --static)' IDENTIFIED BY '$mpw';
-  " | mysql -u root $pwquery
+    # Monasca needs MySQL either way, so create a MySQL database for its use
+    echo | mysql -u root || pwquery=-p
+    echo "
+    set global character_set_server=latin1;
+    set session character_set_server=latin1;
+    CREATE DATABASE IF NOT EXISTS monasca;
+    GRANT ALL PRIVILEGES ON monasca.* TO 'monasca'@localhost IDENTIFIED BY '$mpw';
+    GRANT ALL PRIVILEGES ON monasca.* TO 'monasca'@'$(hostnamectl --static)' IDENTIFIED BY '$mpw';
+    " | mysql -u root $pwquery
 fi
 
 if [ "x$node_is_compute" = "xyes" ]; then
@@ -793,7 +794,9 @@ if [ "x$with_manila" = "xyes" ]; then
     start_and_enable_service openstack-manila-share
     start_and_enable_service openstack-manila-data
     # retry a bit until manila-api is ready
-    for i in {1..5}; do manila type-create default false && break || sleep 1; done
+    for i in {1..5}; do
+        manila type-create default false && break || sleep 1
+    done
 fi
 
 #-----------------------------------------
@@ -907,14 +910,14 @@ EOF
     # configure monasca-installer credentials
     cred_file=/opt/monasca-installer/credentials.yml
     for cred_name in influxdb_mon_api_password \
-                     influxdb_mon_persister_password \
-                     database_notification_password \
-                     database_monapi_password database_thresh_password \
-                     keystone_monasca_operator_password \
-                     keystone_monasca_agent_password \
-                     keystone_admin_agent_password \
-                     keystone_admin_password \
-                     database_grafana_password; do
+            influxdb_mon_persister_password \
+            database_notification_password \
+            database_monapi_password database_thresh_password \
+            keystone_monasca_operator_password \
+            keystone_monasca_agent_password \
+            keystone_admin_agent_password \
+            keystone_admin_password \
+            database_grafana_password; do
         sed -i 's!^'"$cred_name"':$!'"$cred_name"': '"$ADMIN_PASSWORD"'!' $cred_file
     done
 

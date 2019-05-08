@@ -60,8 +60,8 @@ test -d /var/lib/nova/.ssh && chown -R nova:nova /var/lib/nova/.ssh
 
 for m in cinder heat nova glance neutron ; do
     sed -i -e 's/%SERVICE_TENANT_NAME%/service/' \
-           -e "s/%SERVICE_PASSWORD%/$ADMIN_PASSWORD/" \
-               /etc/$m/*.ini /etc/$m/$m*.conf
+        -e "s/%SERVICE_PASSWORD%/$ADMIN_PASSWORD/" \
+        /etc/$m/*.ini /etc/$m/$m*.conf
 done
 
 # configure NTP, because we need synchronized time between nodes
@@ -76,5 +76,5 @@ done
 
 grep -q bash.openstackrc /etc/bash.bashrc.local ||\
 echo "export HOST_IP=$IP
-. /etc/bash.openstackrc 
+. /etc/bash.openstackrc
 setcreds admin $pw" >> /etc/bash.bashrc.local
