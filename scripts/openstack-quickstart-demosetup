@@ -381,7 +381,7 @@ crudini --set $c key_manager fixed_key "$FIXED_KEY"
 # placement api
 install -m 644 /etc/apache2/vhosts.d/openstack-placement-api.conf{.sample,}
 
-c=/etc/placement/placement.conf.d/100-placement.conf
+c=/etc/nova/nova.conf.d/101-placement.conf
 crudini --set $c placement_database connection "$DB://placement:$mpw@$IP/placement"
 
 # Set up database
