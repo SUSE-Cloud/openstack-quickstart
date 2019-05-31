@@ -1148,6 +1148,7 @@ if [ "x$with_tempest" = "xyes" -a -e /etc/tempest/tempest.conf ]; then
     crudini --set /etc/tempest/tempest.conf service_available ceilometer False
     crudini --set /etc/tempest/tempest.conf service_available heat True
     crudini --set /etc/tempest/tempest.conf service_available manila True
+    crudini --set /etc/tempest/tempest.conf service_available designate False
     crudini --set /etc/tempest/tempest.conf stress max_instances 1
     crudini --set /etc/tempest/tempest.conf service_available horizon $with_horizon
     crudini --set /etc/tempest/tempest.conf volume-feature-enabled backup false
