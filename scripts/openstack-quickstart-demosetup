@@ -77,8 +77,7 @@ fi
 if [ "x$with_designate" = "xyes" ]; then
     install_packages openstack-designate openstack-designate-api\
                      openstack-designate-central openstack-designate-producer \
-                     openstack-designate-sink openstack-designate-worker \
-                     python-designateclient
+                     openstack-designate-sink openstack-designate-worker
 fi
 
 if [ "x$with_gnocchi" = "xyes" ]; then
