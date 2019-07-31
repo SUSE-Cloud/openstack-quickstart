@@ -314,23 +314,23 @@ function get_or_create_role {
 function get_or_add_user_project_role {
     local user_role_id
     # Gets user role id
-    user_role_id=$(openstack role list \
+    user_role_id=$(openstack role assignment list \
         --user $2 \
-        --column "ID" \
         --project $3 \
-        --column "Name" \
-        | grep " $1 " | get_field 1)
+        --role $1 \
+        --column "Role" \
+        --format "value")
     if [[ -z "$user_role_id" ]]; then
         # Adds role to user and get it
         openstack role add $1 \
             --user $2 \
             --project $3
-        user_role_id=$(openstack role list \
+        user_role_id=$(openstack role assignment list \
             --user $2 \
-            --column "ID" \
             --project $3 \
-            --column "Name" \
-            | grep " $1 " | get_field 1)
+            --role $1 \
+            --column "Role" \
+            --format "value")
     fi
     echo $user_role_id
 }
@@ -339,23 +339,23 @@ function get_or_add_user_project_role {
 function get_or_add_user_domain_role {
     local user_role_id
     # Gets user role id
-    user_role_id=$(openstack role list \
+    user_role_id=$(openstack role assignment list \
         --user $2 \
-        --column "ID" \
         --domain $3 \
-        --column "Name" \
-        | grep " $1 " | get_field 1)
+        --role $1 \
+        --column "Role" \
+        --format "value")
     if [[ -z "$user_role_id" ]]; then
         # Adds role to user and get it
         openstack role add $1 \
             --user $2 \
             --domain $3
-        user_role_id=$(openstack role list \
+        user_role_id=$(openstack role assignment list \
             --user $2 \
-            --column "ID" \
             --domain $3 \
-            --column "Name" \
-            | grep " $1 " | get_field 1)
+            --role $1 \
+            --column "Role" \
+            --format "value")
     fi
     echo $user_role_id
 }
@@ -364,19 +364,21 @@ function get_or_add_user_domain_role {
 function get_or_add_group_project_role {
     local group_role_id
     # Gets group role id
-    group_role_id=$(openstack role list \
+    group_role_id=$(openstack role assignment list \
         --group $2 \
         --project $3 \
-        -c "ID" -f value)
+        --column "ID" \
+        --format "value")
     if [[ -z "$group_role_id" ]]; then
         # Adds role to group and get it
         openstack role add $1 \
             --group $2 \
             --project $3
-        group_role_id=$(openstack role list \
+        group_role_id=$(openstack role assignment list \
             --group $2 \
             --project $3 \
-            -c "ID" -f value)
+            --column "ID" \
+            --format "value")
     fi
     echo $group_role_id
 }
