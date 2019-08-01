@@ -193,15 +193,17 @@ if [ "$DB" = "postgresql" ] ; then
     done
     sudo -u postgres createuser -s root || :
 
-    # Monasca needs MySQL either way, so create a MySQL database for its use
-    echo | mysql -u root || pwquery=-p
-    echo "
-    set global character_set_server=latin1;
-    set session character_set_server=latin1;
-    CREATE DATABASE IF NOT EXISTS monasca;
-    GRANT ALL PRIVILEGES ON monasca.* TO 'monasca'@localhost IDENTIFIED BY '$mpw';
-    GRANT ALL PRIVILEGES ON monasca.* TO 'monasca'@'$(hostnamectl --static)' IDENTIFIED BY '$mpw';
-    " | mysql -u root $pwquery
+    if [ "x$with_monasca" = "xyes" ]; then
+        # Monasca needs MySQL either way, so create a MySQL database for its use
+        echo | mysql -u root || pwquery=-p
+        echo "
+        set global character_set_server=latin1;
+        set session character_set_server=latin1;
+        CREATE DATABASE IF NOT EXISTS monasca;
+        GRANT ALL PRIVILEGES ON monasca.* TO 'monasca'@localhost IDENTIFIED BY '$mpw';
+        GRANT ALL PRIVILEGES ON monasca.* TO 'monasca'@'$(hostnamectl --static)' IDENTIFIED BY '$mpw';
+        " | mysql -u root $pwquery
+    fi
 fi
 
 if [ "x$node_is_compute" = "xyes" ]; then
