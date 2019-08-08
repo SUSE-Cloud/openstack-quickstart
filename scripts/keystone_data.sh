@@ -135,7 +135,7 @@ function create_keystone_accounts {
 # script starts here
 #################################################
 
-set -e
+set -ex
 
 ADMIN_PASSWORD=${ADMIN_PASSWORD:-secrete}
 SERVICE_PASSWORD=${SERVICE_PASSWORD:-$ADMIN_PASSWORD}
