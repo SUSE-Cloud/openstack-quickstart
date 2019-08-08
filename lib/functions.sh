@@ -235,6 +235,7 @@ function get_field {
     done
 }
 
+# Gets or creates a domain
 # Usage: get_or_create_domain <name> <description>
 function get_or_create_domain {
     local domain_id
@@ -251,6 +252,7 @@ function get_or_create_domain {
     echo $domain_id
 }
 
+# Gets or creates group
 # Usage: get_or_create_group <groupname> <domain> [<description>]
 function get_or_create_group {
     local desc="${3:-}"
@@ -265,6 +267,7 @@ function get_or_create_group {
     echo $group_id
 }
 
+# Gets or creates user
 # Usage: get_or_create_user <username> <password> <domain> [<email>]
 function get_or_create_user {
     local user_id
@@ -287,6 +290,7 @@ function get_or_create_user {
     echo $user_id
 }
 
+# Gets or creates project
 # Usage: get_or_create_project <name> <domain>
 function get_or_create_project {
     local project_id
@@ -299,6 +303,7 @@ function get_or_create_project {
     echo $project_id
 }
 
+# Gets or creates role
 # Usage: get_or_create_role <name>
 function get_or_create_role {
     local role_id
@@ -310,79 +315,101 @@ function get_or_create_role {
     echo $role_id
 }
 
-# Usage: get_or_add_user_project_role <role> <user> <project>
+# Returns the domain parts of a function call if present
+# Usage: _get_domain_args [<user_domain> <project_domain>]
+function _get_domain_args {
+    local domain
+    domain=""
+
+    if [[ -n "$1" ]]; then
+        domain="$domain --user-domain $1"
+    fi
+    if [[ -n "$2" ]]; then
+        domain="$domain --project-domain $2"
+    fi
+
+    echo $domain
+}
+
+# Gets or adds user role to project
+# Usage: get_or_add_user_project_role <role> <user> <project> [<user_domain> <project_domain>]
 function get_or_add_user_project_role {
     local user_role_id
+
+    domain_args=$(_get_domain_args $4 $5)
+
     # Gets user role id
     user_role_id=$(openstack role assignment list \
+        --role $1 \
         --user $2 \
         --project $3 \
-        --role $1 \
-        --column "Role" \
-        --format "value")
+        $domain_args \
+        | grep '^|\s[a-f0-9]\+' | get_field 1)
     if [[ -z "$user_role_id" ]]; then
         # Adds role to user and get it
         openstack role add $1 \
             --user $2 \
-            --project $3
+            --project $3 \
+            $domain_args
         user_role_id=$(openstack role assignment list \
+            --role $1 \
             --user $2 \
             --project $3 \
-            --role $1 \
-            --column "Role" \
-            --format "value")
+            $domain_args \
+            | grep '^|\s[a-f0-9]\+' | get_field 1)
     fi
     echo $user_role_id
 }
 
+# Gets or adds user role to domain
 # Usage: get_or_add_user_domain_role <role> <user> <domain>
 function get_or_add_user_domain_role {
     local user_role_id
     # Gets user role id
     user_role_id=$(openstack role assignment list \
+        --role $1 \
         --user $2 \
         --domain $3 \
-        --role $1 \
-        --column "Role" \
-        --format "value")
+        | grep '^|\s[a-f0-9]\+' | get_field 1)
     if [[ -z "$user_role_id" ]]; then
         # Adds role to user and get it
         openstack role add $1 \
             --user $2 \
             --domain $3
         user_role_id=$(openstack role assignment list \
+            --role $1 \
             --user $2 \
             --domain $3 \
-            --role $1 \
-            --column "Role" \
-            --format "value")
+            | grep '^|\s[a-f0-9]\+' | get_field 1)
     fi
     echo $user_role_id
 }
 
+# Gets or adds group role to project
 # Usage: get_or_add_group_project_role <role> <group> <project>
 function get_or_add_group_project_role {
     local group_role_id
     # Gets group role id
     group_role_id=$(openstack role assignment list \
+        --role $1 \
         --group $2 \
         --project $3 \
-        --column "ID" \
-        --format "value")
+        -f value)
     if [[ -z "$group_role_id" ]]; then
         # Adds role to group and get it
         openstack role add $1 \
             --group $2 \
             --project $3
         group_role_id=$(openstack role assignment list \
+            --role $1 \
             --group $2 \
             --project $3 \
-            --column "ID" \
-            --format "value")
+            -f value)
     fi
     echo $group_role_id
 }
 
+# Gets or creates service
 # Usage: get_or_create_service <name> <type> <description>
 function get_or_create_service {
     local service_id
@@ -400,6 +427,7 @@ function get_or_create_service {
     echo $service_id
 }
 
+# Create an endpoint with a specific interface
 # Usage: _get_or_create_endpoint_with_interface <service> <interface> <url> <region>
 function _get_or_create_endpoint_with_interface {
     local endpoint_id
@@ -417,7 +445,8 @@ function _get_or_create_endpoint_with_interface {
     echo $endpoint_id
 }
 
-# Usage: get_or_create_endpoint <service> <region> <publicurl> <adminurl> <internalurl>
+# Gets or creates endpoint
+# Usage: get_or_create_endpoint <service> <region> <publicurl> [adminurl] [internalurl]
 function get_or_create_endpoint {
     # NOTE(jamielennnox): when converting to v3 endpoint creation we go from
     # creating one endpoint with multiple urls to multiple endpoints each with
@@ -429,9 +458,13 @@ function get_or_create_endpoint {
     # endpoints they need.
     local public_id
     public_id=$(_get_or_create_endpoint_with_interface $1 public $3 $2)
-    _get_or_create_endpoint_with_interface $1 admin $4 $2
-    _get_or_create_endpoint_with_interface $1 internal $5 $2
-
+    # only create admin/internal urls if provided content for them
+    if [[ -n "$4" ]]; then
+        _get_or_create_endpoint_with_interface $1 admin $4 $2
+    fi
+    if [[ -n "$5" ]]; then
+        _get_or_create_endpoint_with_interface $1 internal $5 $2
+    fi
     # return the public id to indicate success, and this is the endpoint most likely wanted
     echo $public_id
 }
