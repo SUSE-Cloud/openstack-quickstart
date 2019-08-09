@@ -110,8 +110,7 @@ if [ "x$with_monasca" = "xyes" ]; then
 fi
 
 if [ "x$with_horizon" = "xyes" ]; then
-    install_packages openstack-dashboard openstack-nova-novncproxy \
-        openstack-nova-consoleauth
+    install_packages openstack-dashboard openstack-nova-novncproxy
 fi
 
 if [ "$DB" = "postgresql" ] ; then
@@ -688,7 +687,7 @@ fi
 # Start glance and nova
 for s in openstack-glance-api openstack-glance-registry \
     openstack-nova-api openstack-nova-conductor openstack-nova-scheduler \
-    openstack-nova-novncproxy openstack-nova-consoleauth
+    openstack-nova-novncproxy
 do
     start_and_enable_service $s
 done
@@ -717,7 +716,6 @@ fi
 if [ "x$with_horizon" = "xyes" ]; then
     # Start nova related services
     start_and_enable_service openstack-nova-console
-    start_and_enable_service openstack-nova-consoleauth
     start_and_enable_service openstack-nova-novncproxy
 fi
 
