@@ -109,6 +109,11 @@ if [ "x$with_monasca" = "xyes" ]; then
                      zookeeper-server
 fi
 
+if [ "x$with_horizon" = "xyes" ]; then
+    install_packages openstack-dashboard openstack-nova-novncproxy \
+        openstack-nova-consoleauth
+fi
+
 if [ "$DB" = "postgresql" ] ; then
     if grep -q "SUSE Linux Enterprise Server 11" /etc/SuSE-release; then
         install_packages postgresql91-server python-psycopg2
