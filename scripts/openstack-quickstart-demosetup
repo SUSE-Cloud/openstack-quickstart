@@ -624,8 +624,13 @@ if ! rabbitmqctl list_users|grep -q openstack; then
 fi
 
 # Start Keystone and Neutron
+# TODO: Trying to enable both "neutron" and "neutron-server" here since 
+#       rpm-packaging is only providing "openstack-neutron" as an Alias and
+#       enabling by alias is not supported by systemctl. We can remove
+#       "openstack-neutron" here as soon as we switched to the rpm-packaging
+#       provided packages.
 for s in openstack-keystone \
-    openstack-neutron openstack-neutron-linuxbridge-agent openstack-neutron-dhcp-agent \
+    openstack-neutron openstack-neutron-server openstack-neutron-linuxbridge-agent openstack-neutron-dhcp-agent \
     openstack-neutron-l3-agent openstack-neutron-metadata-agent
 do
     start_and_enable_service $s
