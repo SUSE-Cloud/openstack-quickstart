@@ -287,7 +287,11 @@ EODASHDB
 SESSION_COOKIE_SECURE = CSRF_COOKIE_SECURE = USE_SSL
 EOSEC
     # sync dashboard DB "after" the database is created
-    run_as wwwrun "cd /srv/www/openstack-dashboard; umask 0027; python -m 'manage' migrate --noinput"
+    if rpm -q python-Django; then
+        run_as wwwrun "cd /srv/www/openstack-dashboard; umask 0027; python -m 'manage' migrate --noinput"
+    else
+        run_as wwwrun "cd /srv/www/openstack-dashboard; umask 0027; python3 -m 'manage' migrate --noinput"
+    fi
 
     start_and_enable_service apache2
 fi
