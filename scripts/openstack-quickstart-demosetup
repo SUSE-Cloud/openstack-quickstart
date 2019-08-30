@@ -839,7 +839,7 @@ if [ "x$with_barbican" = "xyes" ]; then
     crudini --set $c database connection "$DB://barbican:${mpw}@${IP}/barbican"
     crudini --set $c DEFAULT host_href http://${IP}:9311
 
-    cp /etc/apache2/vhosts.d/barbican-api.conf.sample /etc/apache2/vhosts.d/barbican-api.conf
+    cp /usr/share/barbican/barbican-wsgi.conf /etc/apache2/vhosts.d/barbican-api.conf
 
     start_and_enable_service apache2
 
