@@ -80,12 +80,6 @@ if [ "x$with_designate" = "xyes" ]; then
                      openstack-designate-sink openstack-designate-worker
 fi
 
-if [ "x$with_gnocchi" = "xyes" ]; then
-    install_packages openstack-gnocchi openstack-gnocchi-api \
-                     openstack-gnocchi-metricd openstack-gnocchi-statsd \
-                     python-gnocchiclient
-fi
-
 if [ "x$with_monasca" = "xyes" ]; then
     install_packages openstack-monasca-log-agent openstack-monasca-agent \
                      openstack-horizon-plugin-monasca-ui \
@@ -163,7 +157,7 @@ if [ "$DB" = "postgresql" ] ; then
 else
     echo | mysql -u root || pwquery=-p
     for DBNAME in nova cinder keystone glance horizon monasca placement \
-            neutron manila barbican sahara designate gnocchi; do
+            neutron manila barbican sahara designate; do
         echo "
         set global character_set_server=latin1;
         set session character_set_server=latin1;
@@ -188,7 +182,7 @@ if [ "$DB" = "postgresql" ] ; then
     sudo -u postgres dropdb keystone || true # needed for keystone_data.sh
     for DBNAME in nova nova_api nova_cell0 cinder keystone glance horizon heat \
             neutron manila magnum barbican sahara designate \
-            gnocchi placement ; do
+            placement ; do
         # use ALTER if CREATE fails: the role probably already exists
         # in that case
         sudo -u postgres psql -c "CREATE ROLE $DBNAME PASSWORD '$mpw' LOGIN;" || \
@@ -335,10 +329,6 @@ fi
 
 if [ "x$with_designate" = "xyes" ]; then
     setup_keystone_authtoken /etc/designate/designate.conf.d/100-designate.conf designate $ADMIN_PASSWORD
-fi
-
-if [ "x$with_gnocchi" = "xyes" ]; then
-    setup_keystone_authtoken /etc/gnocchi/gnocchi.conf.d/100-gnocchi.conf gnocchi $ADMIN_PASSWORD
 fi
 
 #-----------------------------------------
@@ -525,9 +515,6 @@ if [ "x$with_sahara" = "xyes" ]; then
 fi
 if [ "x$with_designate" = "xyes" ]; then
     ENABLED_SERVICES+=",designate-api,designate-central"
-fi
-if [ "x$with_gnocchi" = "xyes" ]; then
-    ENABLED_SERVICES+=",gnocchi-api,gnocchi-statsd,gnocchi-metricd"
 fi
 if [ "x$with_monasca" = "xyes" ]; then
     ENABLED_SERVICES+=",monasca-api,monasca-log-api"
@@ -895,19 +882,6 @@ if [ "x$with_designate" = "xyes" ]; then
 
     #TODO(toabctl): configure and start services
     #start_and_enable_service openstack-designate-api
-fi
-
-#-----------------------------------------
-# setup OpenStack Gnocchi
-#-----------------------------------------
-if [ "x$with_gnocchi" = "xyes" ]; then
-    c="/etc/gnocchi/gnocchi.conf.d/100-gnocchi.conf"
-    setup_messaging_client $c $IP $pw
-
-    crudini --set $c database connection "$DB://gnocchi:${mpw}@${IP}/gnocchi"
-
-    #TODO(toabctl): configure and start services
-    #start_and_enable_service openstack-gnocchi-statsd
 fi
 
 #-----------------------------------------
