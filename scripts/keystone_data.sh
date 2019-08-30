@@ -452,22 +452,6 @@ if [[ "$ENABLED_SERVICES" =~ "designate-api" ]]; then
                            "$DESIGNATE_SERVICE_PROTOCOL://$DESIGNATE_SERVICE_HOST:$DESIGNATE_SERVICE_PORT/"
 fi
 
-# gnocchi
-if [[ "$ENABLED_SERVICES" =~ "gnocchi-api" ]]; then
-    GNOCCHI_SERVICE_PROTOCOL=http
-    GNOCCHI_SERVICE_PORT=8041
-    GNOCCHI_SERVICE_HOST=$SERVICE_HOST
-
-    create_service_user "gnocchi" "admin"
-
-    get_or_create_service "gnocchi" "metric" "OpenStack Metric Service"
-    get_or_create_endpoint "metric" \
-                           "RegionOne" \
-                           "$GNOCCHI_SERVICE_PROTOCOL://$GNOCCHI_SERVICE_HOST:$GNOCCHI_SERVICE_PORT" \
-                           "$GNOCCHI_SERVICE_PROTOCOL://$GNOCCHI_SERVICE_HOST:$GNOCCHI_SERVICE_PORT" \
-                           "$GNOCCHI_SERVICE_PROTOCOL://$GNOCCHI_SERVICE_HOST:$GNOCCHI_SERVICE_PORT"
-fi
-
 # monasca
 if [[ "$ENABLED_SERVICES" =~ "monasca-api" ]]; then
     MONASCA_API_SERVICE_PROTOCOL=http
