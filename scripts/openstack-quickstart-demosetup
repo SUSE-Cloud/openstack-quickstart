@@ -577,7 +577,7 @@ if [ "x$with_tempest" = "xyes" ]; then
     # configure Neutron VPNaaS
     crudini --set /etc/neutron/neutron_vpnaas.conf service_providers service_provider VPN:ipsec:neutron_vpnaas.services.vpn.service_drivers.ipsec.IPsecVPNDriver:default
     # configure Neutron FWaaS
-    crudini --set /etc/neutron/fwaas_driver.ini service_providers service_provider "FIREWALL_V2:fwaas_db:neutron_fwaas.services.firewall.service_drivers.agents.agents.FirewallAgentDriver:default"
+    crudini --set /etc/neutron/neutron_fwaas.conf service_providers service_provider "FIREWALL_V2:fwaas_db:neutron_fwaas.services.firewall.service_drivers.agents.agents.FirewallAgentDriver:default"
     crudini --set $c_l3a AGENT extensions "fwaas_v2"
     crudini --set $c_l3a fwaas agent_version "v2"
     crudini --set $c_l3a fwaas driver "iptables_v2"
