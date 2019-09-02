@@ -334,14 +334,15 @@ fi
 #-----------------------------------------
 ## setup glance configuration
 #-----------------------------------------
+c=/etc/glance/glance.conf.d/100-glance.conf
+crudini --set $c database connection "$DB://glance:$mpw@$IP/glance"
+
 c_api=/etc/glance/glance-api.conf.d/100-api.conf
 crudini --set $c_api DEFAULT workers "1"
-crudini --set $c_api database connection "$DB://glance:$mpw@$IP/glance"
 crudini --set $c_api glance_store filesystem_store_datadir /var/lib/glance/images/
 
 c_reg=/etc/glance/glance-registry.conf.d/100-registry.conf
 crudini --set $c_reg DEFAULT workers "1"
-crudini --set $c_reg database connection "$DB://glance:$mpw@$IP/glance"
 
 #-----------------------------------------
 ## setup nova configuration
