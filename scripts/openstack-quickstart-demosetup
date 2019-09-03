@@ -28,7 +28,7 @@ if [ "x$with_tempest" = "xyes" ]; then
         python-keystone-tempest-plugin \
         python-heat-tempest-plugin \
         python-neutron-tempest-plugin \
-        openstack-neutron-fwaas-test openstack-tempest-test
+        openstack-tempest-test
 
     if [ "x$with_barbican" = "xyes" ]; then
         install_packages python-barbican-tempest-plugin
