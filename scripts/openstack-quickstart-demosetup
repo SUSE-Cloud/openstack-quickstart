@@ -41,7 +41,7 @@ if [ "x$with_tempest" = "xyes" ]; then
     fi
 
     if [ "x$with_manila" = "xyes" ]; then
-        install_packages  openstack-manila-test python-manila-tempest-plugin
+        install_packages python-manila-tempest-plugin
     fi
 
     if [ "x$with_magnum" = "xyes" ]; then
