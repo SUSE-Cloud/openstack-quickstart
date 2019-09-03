@@ -41,7 +41,7 @@ if [ "x$with_tempest" = "xyes" ]; then
     fi
 
     if [ "x$with_manila" = "xyes" ]; then
-        install_packages  openstack-manila-test python-manila-tempest-plugin
+        install_packages python-manila-tempest-plugin
     fi
 
     if [ "x$with_magnum" = "xyes" ]; then
@@ -52,26 +52,26 @@ fi
 if [ "x$with_manila" = "xyes" ]; then
     install_packages openstack-manila openstack-manila-api \
                      openstack-manila-scheduler openstack-manila-share \
-                     openstack-manila-data python-manila python-manilaclient
+                     openstack-manila-data python-manila python3-manilaclient
 fi
 
 if [ "x$with_magnum" = "xyes" ]; then
     install_packages openstack-magnum openstack-magnum-api \
                      openstack-magnum-conductor python-magnum \
-                     python-magnumclient
+                     python3-magnumclient
 fi
 
 if [ "x$with_barbican" = "xyes" ]; then
     install_packages openstack-barbican openstack-barbican-api\
         openstack-barbican-keystone-listener \
         openstack-barbican-worker openstack-barbican-retry \
-        python-barbican python-barbicanclient
+        python-barbican python3-barbicanclient
 fi
 
 if [ "x$with_sahara" = "xyes" ]; then
     install_packages openstack-sahara openstack-sahara-api\
         openstack-sahara-engine \
-        python-saharaclient
+        python3-saharaclient
 fi
 
 if [ "x$with_designate" = "xyes" ]; then
