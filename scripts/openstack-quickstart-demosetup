@@ -52,12 +52,12 @@ fi
 if [ "x$with_manila" = "xyes" ]; then
     install_packages openstack-manila openstack-manila-api \
                      openstack-manila-scheduler openstack-manila-share \
-                     openstack-manila-data python-manila python3-manilaclient
+                     openstack-manila-data python3-manilaclient
 fi
 
 if [ "x$with_magnum" = "xyes" ]; then
     install_packages openstack-magnum openstack-magnum-api \
-                     openstack-magnum-conductor python-magnum \
+                     openstack-magnum-conductor \
                      python3-magnumclient
 fi
 
@@ -65,7 +65,7 @@ if [ "x$with_barbican" = "xyes" ]; then
     install_packages openstack-barbican openstack-barbican-api\
         openstack-barbican-keystone-listener \
         openstack-barbican-worker openstack-barbican-retry \
-        python-barbican python3-barbicanclient
+        python3-barbicanclient
 fi
 
 if [ "x$with_sahara" = "xyes" ]; then
