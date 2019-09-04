@@ -25,27 +25,26 @@ fi
 if [ "x$with_tempest" = "xyes" ]; then
     install_packages openstack-ec2-api-s3 \
         openstack-neutron-vpnaas openstack-neutron-fwaas \
-        python-keystone-tempest-plugin \
-        python-heat-tempest-plugin \
-        python-neutron-tempest-plugin \
-        openstack-tempest-test
+        python3-keystone-tempest-plugin \
+        python3-heat-tempest-plugin \
+        python3-neutron-tempest-plugin
 
     if [ "x$with_barbican" = "xyes" ]; then
-        install_packages python-barbican-tempest-plugin
+        install_packages python3-barbican-tempest-plugin
     fi
 
     if [ "x$with_designate" = "xyes" ]; then
         ### Designate needs to be configured first
-        #install_packages python-designate-tempest-plugin
+        #install_packages python3-designate-tempest-plugin
         true
     fi
 
     if [ "x$with_manila" = "xyes" ]; then
-        install_packages python-manila-tempest-plugin
+        install_packages python3-manila-tempest-plugin
     fi
 
     if [ "x$with_magnum" = "xyes" ]; then
-        install_packages python-manila-tempest-plugin
+        install_packages python3-manila-tempest-plugin
     fi
 fi
 
