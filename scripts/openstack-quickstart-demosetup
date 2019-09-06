@@ -725,7 +725,7 @@ crudini --set $c DEFAULT stack_user_domain_id $HEAT_DOMAIN_ID
 crudini --set $c DEFAULT stack_domain_admin heat_domain_admin
 crudini --set $c DEFAULT stack_domain_admin_password $ADMIN_PASSWORD
 
-for s in openstack-heat-engine openstack-heat-api-cfn openstack-heat-api; do
+for s in openstack-heat-api openstack-heat-engine openstack-heat-api-cfn; do
     start_and_enable_service $s
 done
 
