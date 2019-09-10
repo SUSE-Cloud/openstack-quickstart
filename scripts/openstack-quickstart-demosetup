@@ -23,7 +23,7 @@ if [ "x$node_is_compute" = "xyes" ]; then
 fi
 
 if [ "x$with_tempest" = "xyes" ]; then
-    install_packages openstack-ec2-api-s3 \
+    install_packages \
         openstack-neutron-vpnaas openstack-neutron-fwaas \
         python3-keystone-tempest-plugin \
         python3-heat-tempest-plugin \
@@ -65,6 +65,10 @@ if [ "x$with_barbican" = "xyes" ]; then
         openstack-barbican-keystone-listener \
         openstack-barbican-worker openstack-barbican-retry \
         python3-barbicanclient
+fi
+
+if [ "x$with_ec2api" = "xyes" ]; then
+    install_packages openstack-ec2-api-api openstack-ec2-api-s3
 fi
 
 if [ "x$with_sahara" = "xyes" ]; then
@@ -156,7 +160,7 @@ if [ "$DB" = "postgresql" ] ; then
 else
     echo | mysql -u root || pwquery=-p
     for DBNAME in nova cinder keystone glance horizon monasca placement \
-            neutron manila barbican sahara designate; do
+            neutron manila barbican ec2api sahara designate; do
         echo "
         set global character_set_server=latin1;
         set session character_set_server=latin1;
@@ -180,7 +184,7 @@ start_and_enable_service iscsid
 if [ "$DB" = "postgresql" ] ; then
     sudo -u postgres dropdb keystone || true # needed for keystone_data.sh
     for DBNAME in nova nova_api nova_cell0 cinder keystone glance horizon heat \
-            neutron manila magnum barbican sahara designate \
+            neutron manila magnum barbican ec2api sahara designate \
             placement ; do
         # use ALTER if CREATE fails: the role probably already exists
         # in that case
@@ -696,10 +700,6 @@ for s in openstack-nova-conductor openstack-nova-scheduler; do
     systemctl restart $s
 done
 
-if [ "x$with_tempest" = "xyes" ]; then
-    start_and_enable_service openstack-ec2-api-s3
-fi
-
 if [ "x$with_horizon" = "xyes" ]; then
     # Start nova related services
     start_and_enable_service openstack-nova-console
@@ -876,6 +876,19 @@ if [ "x$with_designate" = "xyes" ]; then
 
     #TODO(toabctl): configure and start services
     #start_and_enable_service openstack-designate-api
+fi
+
+#-----------------------------------------
+# setup OpenStack EC2-API
+#-----------------------------------------
+if [ "x$with_ec2api" = "xyes" ]; then
+    c="/etc/ec2api/ec2api.conf.d/100-ec2api.conf"
+    setup_messaging_client $c $IP $pw
+
+    crudini --set $c database connection "$DB://ec2api:${mpw}@${IP}/ec2api"
+
+    start_and_enable_service openstack-ec2-api-api
+    start_and_enable_service openstack-ec2-api-s3
 fi
 
 #-----------------------------------------

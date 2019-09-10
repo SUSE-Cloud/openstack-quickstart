@@ -26,6 +26,9 @@ SERVICE_TOKEN=999888777666
 # Setup Barbican
 with_barbican=no
 
+# Setup EC2 API
+with_ec2api=yes
+
 # Setup Horizon dashboard
 with_horizon=yes
 
