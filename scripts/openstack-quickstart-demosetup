@@ -116,6 +116,8 @@ if [ "$DB" = "postgresql" ] ; then
     else
         install_packages postgresql-server python-psycopg2
     fi
+else
+    install_packages mariadb python3-mysqlclient
 fi
 
 # configure NTP, because we need synchronized time between nodes
@@ -158,9 +160,12 @@ if [ "$DB" = "postgresql" ] ; then
         fi
     fi
 else
+    sed -i -e "s/bind-address.*/bind-address = $IP/" /etc/my.cnf
+    start_and_enable_service mariadb
     echo | mysql -u root || pwquery=-p
-    for DBNAME in nova cinder keystone glance horizon monasca placement \
-            neutron manila barbican ec2api sahara designate; do
+    for DBNAME in nova nova_api nova_cell0 cinder keystone glance horizon heat \
+            neutron manila magnum barbican ec2api sahara designate \
+            placement monasca; do
         echo "
         set global character_set_server=latin1;
         set session character_set_server=latin1;
@@ -168,6 +173,12 @@ else
         GRANT ALL PRIVILEGES ON $DBNAME.* TO '$DBNAME'@localhost IDENTIFIED BY '$mpw';
         GRANT ALL PRIVILEGES ON $DBNAME.* TO '$DBNAME'@'$(hostnamectl --static)' IDENTIFIED BY '$mpw';
         " | mysql -u root $pwquery
+        if [ "$DBNAME" = "nova_cell0" ]; then
+            echo "
+            GRANT ALL PRIVILEGES ON $DBNAME.* TO 'nova'@localhost IDENTIFIED BY '$mpw';
+            GRANT ALL PRIVILEGES ON $DBNAME.* TO 'nova'@'$(hostnamectl --static)' IDENTIFIED BY '$mpw';
+            " | mysql -u root $pwquery
+        fi
     done
 fi
 
@@ -250,10 +261,16 @@ EOF
     fi
 
     if [ "$DB" = "postgresql" ] ; then
-    cat >> $DASHBOARD_LOCAL_SET <<EODASHDB
+        django_db_backend="django.db.backends.postgresql_psycopg2"
+    else
+        django_db_backend="django.db.backends.mysql"
+    fi
+
+
+cat >> $DASHBOARD_LOCAL_SET <<EODASHDB
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'ENGINE': '$django_db_backend',
         'HOST': '$IP',
         'NAME': 'horizon',
         'USER': 'horizon',
@@ -261,7 +278,6 @@ DATABASES = {
     }
 }
 EODASHDB
-    fi
 
     sed -i -e "s/^DEBUG =.*/DEBUG = False/" $DASHBOARD_LOCAL_SET
     sed -i -e "s/^OPENSTACK_HOST = .*/OPENSTACK_HOST = \"$IP\"/" $DASHBOARD_LOCAL_SET
@@ -334,11 +350,16 @@ if [ "x$with_designate" = "xyes" ]; then
     setup_keystone_authtoken /etc/designate/designate.conf.d/100-designate.conf designate $ADMIN_PASSWORD
 fi
 
+if [ "$DB" = "postgresql" ] ; then
+    db_uri_scheme="postgresql"
+else
+    db_uri_scheme="mysql+pymysql"
+fi
 #-----------------------------------------
 ## setup glance configuration
 #-----------------------------------------
 c=/etc/glance/glance.conf.d/100-glance.conf
-crudini --set $c database connection "$DB://glance:$mpw@$IP/glance"
+crudini --set $c database connection "$db_uri_scheme://glance:$mpw@$IP/glance"
 
 c_api=/etc/glance/glance-api.conf.d/100-api.conf
 crudini --set $c_api DEFAULT workers "1"
@@ -357,8 +378,8 @@ done
 
 c=/etc/nova/nova.conf.d/100-nova.conf
 setup_messaging_client $c $IP $pw
-crudini --set $c database connection "$DB://nova:$mpw@$IP/nova"
-crudini --set $c api_database connection "$DB://nova_api:$mpw@$IP/nova_api"
+crudini --set $c database connection "$db_uri_scheme://nova:$mpw@$IP/nova"
+crudini --set $c api_database connection "$db_uri_scheme://nova_api:$mpw@$IP/nova_api"
 crudini --set $c glance host $IP
 crudini --set $c glance api_servers "http://$IP:9292"
 crudini --set $c DEFAULT connection_type libvirt
@@ -385,7 +406,7 @@ crudini --set $c key_manager fixed_key "$FIXED_KEY"
 install -m 644 /etc/apache2/vhosts.d/openstack-placement-api.conf{.sample,}
 
 c=/etc/placement/placement.conf.d/100-placement.conf
-crudini --set $c placement_database connection "$DB://placement:$mpw@$IP/placement"
+crudini --set $c placement_database connection "$db_uri_scheme://placement:$mpw@$IP/placement"
 
 # Set up database
 placement-manage db sync
@@ -407,7 +428,7 @@ fi
 c=/etc/cinder/cinder.conf.d/100-cinder.conf
 crudini --set $c DEFAULT my_ip "$IP"
 crudini --set $c DEFAULT osapi_volume_workers "1"
-crudini --set $c database connection "$DB://cinder:${mpw}@${IP}/cinder"
+crudini --set $c database connection "$db_uri_scheme://cinder:${mpw}@${IP}/cinder"
 crudini --set $c keymgr fixed_key "$FIXED_KEY"
 # configure a cinder backend (LVM)
 cinder_backend_name="backend-1"
@@ -428,7 +449,7 @@ fi
 ## setup keystone configuration
 #-----------------------------------------
 c=/etc/keystone/keystone.conf.d/100-keystone.conf
-crudini --set $c database connection $DB://keystone:$mpw@$IP/keystone
+crudini --set $c database connection $db_uri_scheme://keystone:$mpw@$IP/keystone
 crudini --set $c DEFAULT admin_token "$SERVICE_TOKEN"
 crudini --set $c DEFAULT public_workers 2
 crudini --set $c DEFAULT admin_workers 2
@@ -545,7 +566,7 @@ fi
 SERVICE_TENANT_ID=`get_service_tenant_id`
 
 c=/etc/neutron/neutron.conf.d/100-neutron.conf
-crudini --set $c database connection $DB://neutron:$mpw@$IP/neutron
+crudini --set $c database connection $db_uri_scheme://neutron:$mpw@$IP/neutron
 crudini --set $c DEFAULT core_plugin neutron.plugins.ml2.plugin.Ml2Plugin
 crudini --set $c DEFAULT service_plugins "neutron.services.l3_router.l3_router_plugin.L3RouterPlugin"
 crudini --set $c DEFAULT allow_overlapping_ips true
@@ -711,7 +732,7 @@ fi
 #-----------------------------------------
 setup_messaging_client /etc/heat/heat.conf $IP $pw
 c=/etc/heat/heat.conf.d/100-heat.conf
-crudini --set $c database connection $DB://heat:$mpw@$IP/heat
+crudini --set $c database connection $db_uri_scheme://heat:$mpw@$IP/heat
 crudini --set $c DEFAULT deferred_auth_method trusts
 crudini --set $c DEFAULT num_engine_workers "1"
 crudini --set $c heat_api workers "1"
@@ -778,7 +799,7 @@ if [ "x$with_manila" = "xyes" ]; then
     setup_messaging_client $c $IP $pw
     crudini --set $c DEFAULT my_ip "$IP"
     crudini --set $c DEFAULT default_share_type "default"
-    crudini --set $c database connection "$DB://manila:${mpw}@${IP}/manila"
+    crudini --set $c database connection "$db_uri_scheme://manila:${mpw}@${IP}/manila"
     crudini --set $c identity uri $KEYSTONE_PUBLIC_ENDPOINT
     crudini --set $c DEFAULT share_volume_fstype ext3
 
@@ -816,7 +837,7 @@ if [ "x$with_magnum" = "xyes" ]; then
     crudini --set $c trust trustee_domain_id $trustee_domain_id
     crudini --set $c trust trustee_domain_admin_id $trustee_domain_admin_id
     crudini --set $c trust trustee_domain_admin_password $ADMIN_PASSWORD
-    crudini --set $c database connection "$DB://magnum:${mpw}@${IP}/magnum"
+    crudini --set $c database connection "$db_uri_scheme://magnum:${mpw}@${IP}/magnum"
     crudini --set $c cinder_client region_name RegionOne
     crudini --set $c api host $IP
     crudini --set $c certificates cert_manager_type local
@@ -836,7 +857,7 @@ if [ "x$with_barbican" = "xyes" ]; then
     a2enmod rewrite
     a2enmod wsgi
 
-    crudini --set $c database connection "$DB://barbican:${mpw}@${IP}/barbican"
+    crudini --set $c database connection "$db_uri_scheme://barbican:${mpw}@${IP}/barbican"
     crudini --set $c DEFAULT host_href http://${IP}:9311
 
     cp /usr/share/barbican/barbican-wsgi.conf /etc/apache2/vhosts.d/barbican-api.conf
@@ -858,7 +879,7 @@ if [ "x$with_sahara" = "xyes" ]; then
     c="/etc/sahara/sahara.conf.d/100-sahara.conf"
     setup_messaging_client $c $IP $pw
 
-    crudini --set $c database connection "$DB://sahara:${mpw}@${IP}/sahara"
+    crudini --set $c database connection "$db_uri_scheme://sahara:${mpw}@${IP}/sahara"
 
     #TODO(toabctl): configure and start services
     #start_and_enable_service openstack-sahara-api
@@ -872,7 +893,7 @@ if [ "x$with_designate" = "xyes" ]; then
     c="/etc/designate/designate.conf.d/100-designate.conf"
     setup_messaging_client $c $IP $pw
 
-    crudini --set $c database connection "$DB://designate:${mpw}@${IP}/designate"
+    crudini --set $c database connection "$db_uri_scheme://designate:${mpw}@${IP}/designate"
 
     #TODO(toabctl): configure and start services
     #start_and_enable_service openstack-designate-api
