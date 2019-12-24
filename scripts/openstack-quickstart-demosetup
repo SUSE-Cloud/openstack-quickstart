@@ -697,9 +697,20 @@ fi
 #---------------------------------------
 
 # Start glance and nova
-for s in openstack-glance-api openstack-glance-registry \
-    openstack-nova-api openstack-nova-conductor openstack-nova-scheduler \
-    openstack-nova-novncproxy
+for s in openstack-glance-api openstack-glance-registry
+do
+    start_and_enable_service $s
+done
+
+# Setup api_db
+nova-manage api_db sync
+
+# migrate data directly
+nova-manage db online_data_migrations
+
+# Start nova (Conductor first, API last!)
+for s in openstack-nova-conductor openstack-nova-scheduler \
+    openstack-nova-novncproxy openstack-nova-api
 do
     start_and_enable_service $s
 done
@@ -708,18 +719,10 @@ if [ "x$node_is_compute" = "xyes" ]; then
     start_and_enable_service openstack-nova-compute
 fi
 
-# migrate data directly
-nova-manage db online_data_migrations
-
 # do cell setup (mandatory since Ocata)
 nova-manage cell_v2 simple_cell_setup --transport-url rabbit://openstack:$pw@$IP
 nova-manage cell_v2 discover_hosts --verbose
 
-### Figure out why this  restart is needed ??!
-# 2018-08-30: without the compute node is not registered properly
-for s in openstack-nova-conductor openstack-nova-scheduler; do
-    systemctl restart $s
-done
 
 if [ "x$with_horizon" = "xyes" ]; then
     # Start nova related services
