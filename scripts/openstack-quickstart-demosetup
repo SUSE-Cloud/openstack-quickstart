@@ -314,7 +314,6 @@ fi
 #-----------------------------------------
 
 setup_keystone_authtoken /etc/glance/glance-api.conf.d/100-api.conf glance $ADMIN_PASSWORD
-setup_keystone_authtoken /etc/glance/glance-registry.conf.d/100-registry.conf glance $ADMIN_PASSWORD
 setup_keystone_authtoken /etc/neutron/neutron.conf.d/100-neutron.conf neutron $ADMIN_PASSWORD
 setup_keystone_authtoken /etc/neutron/neutron.conf.d/100-neutron.conf nova $ADMIN_PASSWORD nova
 setup_keystone_authtoken /etc/cinder/cinder.conf.d/100-cinder.conf cinder $ADMIN_PASSWORD
@@ -364,9 +363,6 @@ crudini --set $c database connection "$db_uri_scheme://glance:$mpw@$IP/glance"
 c_api=/etc/glance/glance-api.conf.d/100-api.conf
 crudini --set $c_api DEFAULT workers "1"
 crudini --set $c_api glance_store filesystem_store_datadir /var/lib/glance/images/
-
-c_reg=/etc/glance/glance-registry.conf.d/100-registry.conf
-crudini --set $c_reg DEFAULT workers "1"
 
 #-----------------------------------------
 ## setup nova configuration
@@ -697,7 +693,7 @@ fi
 #---------------------------------------
 
 # Start glance and nova
-for s in openstack-glance-api openstack-glance-registry \
+for s in openstack-glance-api \
     openstack-nova-api openstack-nova-conductor openstack-nova-scheduler \
     openstack-nova-novncproxy
 do
