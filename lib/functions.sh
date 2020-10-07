@@ -20,10 +20,6 @@ function run_as {
     su - $1 -s /bin/bash -c "$2"
 }
 
-function get_router_id {
-    openstack router show -f value -c id public
-}
-
 function get_service_tenant_id {
     openstack project show service -c id -f value
 }
