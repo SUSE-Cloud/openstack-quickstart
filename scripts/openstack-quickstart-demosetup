@@ -853,11 +853,12 @@ if [ "x$with_barbican" = "xyes" ]; then
     a2enmod rewrite
     a2enmod wsgi
 
-    crudini --set $c database connection "$db_uri_scheme://barbican:${mpw}@${IP}/barbican"
+    crudini --set $c DEFAULT sql_connection "$db_uri_scheme://barbican:${mpw}@${IP}/barbican"
     crudini --set $c DEFAULT host_href http://${IP}:9311
 
     cp /usr/share/barbican/barbican-wsgi.conf /etc/apache2/vhosts.d/barbican-api.conf
 
+    barbican-manage db upgrade -v head
     start_and_enable_service apache2
 
     # may be needed if Horizon already started apache2
