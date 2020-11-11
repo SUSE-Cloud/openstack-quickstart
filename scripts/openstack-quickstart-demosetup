@@ -25,7 +25,8 @@ fi
 if [ "x$with_tempest" = "xyes" ]; then
     install_packages openstack-ec2-api-s3 openstack-neutron-lbaas-agent \
         openstack-neutron-vpnaas openstack-neutron-fwaas \
-        openstack-neutron-fwaas-test openstack-tempest-test
+        openstack-neutron-fwaas-test openstack-tempest-test \
+        python-neutron-vpnaas-tempest-plugin
     if [ "x$with_manila" = "xyes" ]; then
         install_packages  openstack-manila-test
     fi
