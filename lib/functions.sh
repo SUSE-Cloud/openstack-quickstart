@@ -172,6 +172,10 @@ function disable_firewall_and_enable_forwarding {
         stop_and_disable_service SuSEfirewall2_setup
         stop_and_disable_service SuSEfirewall2_init
     fi
+    if test -e /usr/sbin/firewalld; then
+        stop_and_disable_service firewalld
+        systemctl mask --now firewalld.service
+    fi
 
     # activate ip-forwarding
     cat - > /etc/sysctl.d/90-openstack-quickstart.conf <<EOF
